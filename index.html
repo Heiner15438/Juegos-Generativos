@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Game Hub: Platformer & Maze</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React y ReactDOM -->
+  <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+  
+  <!-- Babel para JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    /* ---- ESTILOS GENERALES Y DEL LABERINTO ---- */
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0f172a; /* bg-slate-900 */
+      touch-action: none; /* Previene zoom en móviles */
+    }
+
+    :root {
+      --wall-color: #3b3b5c;
+      --path-color: #2d2d40;
+      --player-color: #4ecdc4;
+      --exit-color: #f7b801;
+      --enemy-color: #ff6b6b;
+      --boost-color: #7dce82;
+    }
+
+    .cell { width: 100%; height: 100%; transition: transform 0.2s ease-in-out, background-color 0.3s; }
+    .wall { background-color: var(--wall-color); border-radius: 4px; box-shadow: inset 0 0 5px rgba(0,0,0,0.4); }
+    .path { background-color: var(--path-color); }
+    .player-maze { background-color: var(--player-color); border-radius: 50%; transform: scale(0.8); box-shadow: 0 0 10px var(--player-color); }
+    .exit { background-color: var(--exit-color); border-radius: 4px; box-shadow: 0 0 10px var(--exit-color); }
+    .enemy-maze { background-color: var(--enemy-color); border-radius: 50%; transform: scale(0.7); box-shadow: 0 0 8px var(--enemy-color); }
+    .boost { background-color: var(--boost-color); border-radius: 50%; transform: scale(0.6); animation: pulse 1.5s infinite; }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 5px var(--boost-color); }
+      50% { box-shadow: 0 0 15px var(--boost-color); }
+      100% { box-shadow: 0 0 5px var(--boost-color); }
+    }
+    
+    .control-btn { -webkit-tap-highlight-color: transparent; }
+    
+    /* ---- NUEVOS ESTILOS PARA EL JUEGO DE PLATAFORMAS ---- */
+    .platformer-canvas {
+      /* Sombra para que el canvas resalte */
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3), 0 0 40px rgba(78, 205, 196, 0.2);
+    }
+  </style>
+</head>
+<body>
+  
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    // =======================================================================
+    // --- LÓGICA DEL JUEGO DE LABERINTO (Vanilla JS encapsulada) ---
+    // =======================================================================
+    function initializeMazeGame(container, onExit) {
+        const gameEl = container.querySelector('#game');
+        const levelText = container.querySelector('#level');
+        const scoreText = container.querySelector('#score');
+        const livesText = container.querySelector('#lives');
+        const startBtn = container.querySelector('#startBtn');
+        const pauseBtn = container.querySelector('#pauseBtn');
+        const backBtn = container.querySelector('#backBtn');
+        const modal = container.querySelector('#modal');
+        const modalTitle = container.querySelector('#modal-title');
+        const modalText = container.querySelector('#modal-text');
+        const modalButton = container.querySelector('#modal-button');
+
+        const MAP_SIZE = 20;
+        const ENEMY_SPEED = 800;
+        let grid = [], player = { x: 1, y: 1 }, enemies = [], boosts = [], exitPos = {x: 0, y: 0};
+        let level = 1, score = 0, lives = 3;
+        let gameState = 'initial', gameLoopInterval;
+
+        const mapTemplate = [ "WWWWWWWWWWWWWWWWWWWW", "WP.B..............WW", "W.WWWWW.WWWW.WWWWW.W", "W.......W......B.W.W", "WWWWW.W.WWWWWW.WWWWW", "W.B...W.W....W.W...W", "W.WWWWW.WW.W.W.WWWWW", "W.W...W...W.W...B..W", "W.W.WWWWW.WWWWWWWW.W", "W...W...W........W.W", "WWWWW.WWWWW.WWWW.WWW", "W...B.W.......W.B..W", "W.WWWWWWWWWW.WWWWW.W", "W.E..............E.W", "W.WWWW.WWWWWW.WWWW.W", "W....W......W....W.W", "WWWW.W.WWWW.W.WWWW.W", "W.E....B....W...B..W", "W.WWWWWWWWWWWWWWWW.W", "WWWWWWWWWWWWWWWWWWXW" ];
+        const typeToClass = { 'W': 'wall', '.': 'path', 'P': 'player-maze', 'E': 'enemy-maze', 'B': 'boost', 'X': 'exit' };
+
+        const getCellData = (x, y) => grid[y * MAP_SIZE + x];
+        const updateCellView = (x, y, newClass) => {
+            const cellData = getCellData(x, y);
+            if (cellData) cellData.element.className = `cell ${newClass}`;
+        };
+
+        function generateMap() {
+            gameEl.innerHTML = "";
+            grid = []; enemies = []; boosts = [];
+            for (let y = 0; y < MAP_SIZE; y++) {
+                for (let x = 0; x < MAP_SIZE; x++) {
+                    const cellEl = document.createElement('div');
+                    const type = mapTemplate[y][x];
+                    const className = typeToClass[type] || 'path';
+                    cellEl.className = `cell ${className}`;
+                    const cellData = { x, y, type, element: cellEl };
+                    grid.push(cellData);
+                    gameEl.appendChild(cellEl);
+                    if (type === 'P') player = { x, y };
+                    if (type === 'E') enemies.push({ x, y });
+                    if (type === 'B') boosts.push({ x, y });
+                    if (type === 'X') exitPos = {x, y};
+                }
+            }
+        }
+       
+        const updateHUD = () => { levelText.textContent = level; livesText.textContent = lives; scoreText.textContent = score; };
+       
+        function movePlayer(dx, dy) {
+            if (gameState !== 'playing') return;
+            const newX = player.x + dx, newY = player.y + dy;
+            const targetCell = getCellData(newX, newY);
+            if (!targetCell || targetCell.type === 'W') return;
+            updateCellView(player.x, player.y, 'path');
+            updateCellView(newX, newY, 'player-maze');
+            player.x = newX; player.y = newY;
+            handleCellInteraction(newX, newY);
+        }
+
+        function handleCellInteraction(x, y) {
+            if (x === exitPos.x && y === exitPos.y) {
+                gameState = 'won'; score += 100 * level;
+                showModal('¡Nivel Completo!', `¡Ganaste ${100 * level} puntos!`, 'Siguiente Nivel');
+            } else if (enemies.some(e => e.x === x && e.y === y)) {
+                handlePlayerDeath();
+            } else {
+                const boostIndex = boosts.findIndex(b => b.x === x && b.y === y);
+                if (boostIndex !== -1) {
+                    score += 50; updateHUD(); boosts.splice(boostIndex, 1);
+                    const cellData = getCellData(x, y); if (cellData) cellData.type = '.';
+                }
+            }
+        }
+
+        function handlePlayerDeath() {
+            lives--; updateHUD();
+            if (lives <= 0) {
+                gameState = 'over';
+                showModal('¡Fin del Juego!', `Tu puntuación final es ${score}.`, 'Jugar de Nuevo');
+            } else {
+                const startPos = getStartPosition();
+                updateCellView(player.x, player.y, 'enemy-maze');
+                setTimeout(() => {
+                    updateCellView(player.x, player.y, 'path');
+                    player.x = startPos.x; player.y = startPos.y;
+                    updateCellView(player.x, player.y, 'player-maze');
+                }, 200);
+            }
+        }
+       
+        const getStartPosition = () => grid.find(c => mapTemplate[c.y][c.x] === 'P') || {x:1, y:1};
+
+        function moveEnemies() {
+            if (gameState !== 'playing') return;
+            enemies.forEach(e => {
+                const oldX = e.x, oldY = e.y;
+                const dx = Math.sign(player.x - e.x), dy = Math.sign(player.y - e.y);
+                let moved = (Math.random() > 0.5) ? (tryMove(e, dx, 0) || tryMove(e, 0, dy)) : (tryMove(e, 0, dy) || tryMove(e, dx, 0));
+                if (moved) {
+                    if (e.x === player.x && e.y === player.y) handlePlayerDeath();
+                    else {
+                        let oldCellClass = boosts.some(b => b.x === oldX && b.y === oldY) ? 'boost' : 'path';
+                        updateCellView(oldX, oldY, oldCellClass);
+                        updateCellView(e.x, e.y, 'enemy-maze');
+                    }
+                }
+            });
+        }
+       
+        function tryMove(entity, dx, dy) {
+            const nextX = entity.x + dx, nextY = entity.y + dy;
+            if (dx === 0 && dy === 0) return false;
+            const targetCell = getCellData(nextX, nextY);
+            if (targetCell && targetCell.type !== 'W' && !enemies.some(en => en.x === nextX && en.y === nextY)) {
+                entity.x = nextX; entity.y = nextY;
+                return true;
+            }
+            return false;
+        }
+       
+        const showModal = (title, text, buttonText) => { modalTitle.textContent = title; modalText.textContent = text; modalButton.textContent = buttonText; modal.classList.remove('hidden'); clearInterval(gameLoopInterval); };
+
+        function resetAndStartLevel() {
+            if (gameState === 'won') level++; else { level = 1; score = 0; lives = 3; }
+            gameState = 'playing'; updateHUD(); generateMap(); modal.classList.add('hidden');
+            clearInterval(gameLoopInterval);
+            gameLoopInterval = setInterval(moveEnemies, ENEMY_SPEED);
+            startBtn.disabled = true; pauseBtn.disabled = false; pauseBtn.textContent = 'Pausa';
+        };
+
+        const startGame = () => { startBtn.textContent = 'Reiniciar'; resetAndStartLevel(); };
+        const togglePause = () => { if (gameState === 'playing') { gameState = 'paused'; pauseBtn.textContent = 'Reanudar'; clearInterval(gameLoopInterval); } else if (gameState === 'paused') { gameState = 'playing'; pauseBtn.textContent = 'Pausa'; gameLoopInterval = setInterval(moveEnemies, ENEMY_SPEED); } };
+
+        const handleKeyDown = e => { if(gameState !== 'playing') return; e.preventDefault(); switch (e.key) { case 'ArrowUp': case 'w': movePlayer(0, -1); break; case 'ArrowDown': case 's': movePlayer(0, 1); break; case 'ArrowLeft': case 'a': movePlayer(-1, 0); break; case 'ArrowRight': case 'd': movePlayer(1, 0); break; } };
+
+        startBtn.addEventListener('click', startGame);
+        pauseBtn.addEventListener('click', togglePause);
+        modalButton.addEventListener('click', resetAndStartLevel);
+        backBtn.addEventListener('click', onExit);
+        window.addEventListener('keydown', handleKeyDown);
+
+        container.querySelector('#upBtn').addEventListener('click', () => movePlayer(0, -1));
+        container.querySelector('#downBtn').addEventListener('click', () => movePlayer(0, 1));
+        container.querySelector('#leftBtn').addEventListener('click', () => movePlayer(-1, 0));
+        container.querySelector('#rightBtn').addEventListener('click', () => movePlayer(1, 0));
+
+        generateMap(); updateHUD(); pauseBtn.disabled = true;
+
+        // Función de limpieza para remover listeners
+        return () => {
+            clearInterval(gameLoopInterval);
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }
+
+    // =======================================================================
+    // --- COMPONENTE WRAPPER PARA EL JUEGO DE LABERINTO ---
+    // =======================================================================
+    const MazeGameWrapper = ({ onExit }) => {
+        const mazeContainerRef = useRef(null);
+
+        useEffect(() => {
+            const container = mazeContainerRef.current;
+            if (container) {
+                // Inicializa el juego y obtiene la función de limpieza
+                const cleanup = initializeMazeGame(container, onExit);
+                
+                // Retorna la función de limpieza para que React la ejecute al desmontar
+                return cleanup;
+            }
+        }, [onExit]);
+
+        return (
+            <div ref={mazeContainerRef} className="w-full flex flex-col items-center justify-center">
+                {/* HTML que necesita el script del laberinto */}
+                <div id="hud" className="w-full max-w-2xl mb-4 p-4 bg-gray-800 rounded-lg shadow-lg flex justify-around items-center text-center">
+                    <div><span className="text-gray-400 text-sm">NIVEL</span><span id="level" className="block text-2xl font-bold">1</span></div>
+                    <div><span className="text-gray-400 text-sm">VIDAS</span><span id="lives" className="block text-2xl font-bold text-red-400">3</span></div>
+                    <div><span className="text-gray-400 text-sm">PUNTOS</span><span id="score" className="block text-2xl font-bold">0</span></div>
+                </div>
+                <div id="game-container" className="relative w-full max-w-2xl aspect-square">
+                    <div id="game" className="grid gap-0.5 w-full h-full bg-gray-700 p-1 rounded-md" style={{gridTemplateColumns: 'repeat(20, minmax(0, 1fr))', gridTemplateRows: 'repeat(20, minmax(0, 1fr))'}}></div>
+                </div>
+                <div id="controls" className="mt-6 flex flex-col items-center">
+                    <div className="flex space-x-4 mb-4">
+                        <button id="startBtn" className="px-6 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg shadow-md transition-transform transform hover:scale-105">Empezar</button>
+                        <button id="pauseBtn" className="px-6 py-2 bg-yellow-500 hover:bg-yellow-600 rounded-lg shadow-md transition-transform transform hover:scale-105" disabled>Pausa</button>
+                        <button id="backBtn" className="px-6 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg shadow-md transition-transform transform hover:scale-105">Menú</button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 w-48 md:hidden">
+                        <div></div><button id="upBtn" className="control-btn bg-gray-700 p-4 rounded-lg shadow-inner transform active:scale-95">▲</button><div></div>
+                        <button id="leftBtn" className="control-btn bg-gray-700 p-4 rounded-lg shadow-inner transform active:scale-95">◄</button>
+                        <button id="downBtn" className="control-btn bg-gray-700 p-4 rounded-lg shadow-inner transform active:scale-95">▼</button>
+                        <button id="rightBtn" className="control-btn bg-gray-700 p-4 rounded-lg shadow-inner transform active:scale-95">►</button>
+                    </div>
+                </div>
+                <div id="modal" className="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+                    <div className="bg-gray-800 p-8 rounded-lg shadow-2xl text-center max-w-sm mx-auto">
+                        <h2 id="modal-title" className="text-3xl font-bold mb-4"></h2>
+                        <p id="modal-text" className="text-lg mb-6"></p>
+                        <button id="modal-button" className="px-8 py-3 bg-green-500 hover:bg-green-600 rounded-lg shadow-md">Jugar</button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+    
+    // =======================================================================
+    // --- LÓGICA DEL JUEGO DE PLATAFORMAS (Refactorizado como componente) ---
+    // =======================================================================
+    const PlatformerGame = ({ onExit }) => {
+        const canvasRef = useRef(null);
+        const animationRef = useRef(null);
+        const [gameState, setGameState] = useState('menu');
+        const [theme, setTheme] = useState('');
+        const [customTheme, setCustomTheme] = useState('');
+        const [level, setLevel] = useState(1);
+        const [score, setScore] = useState(0);
+        const [lives, setLives] = useState(3);
+        const [isGenerating, setIsGenerating] = useState(false);
+        const [levelData, setLevelData] = useState(null);
+        
+        const gameRefs = useRef({
+          player: { x: 50, y: 300, vx: 0, vy: 0, width: 30, height: 30, grounded: false, jumpCount: 0, hasDoubleJump: false, invulnerable: false },
+          camera: { x: 0, y: 0 }, keys: {}, time: 0, collectedItems: new Set(), defeatedEnemies: new Set(), platformStates: new Map()
+        });
+
+        const getThemesForLevel = (level) => ([
+            [{ name: 'Cuevas de Cristal', icon: '⭐', color: '#e94560' }, { name: 'Biblioteca Flotante', icon: '🪶', color: '#9b59b6' }, { name: 'Dimensión Espejo', icon: '👁️', color: '#3498db' }],
+            [{ name: 'Abismo Bioluminiscente', icon: '🌊', color: '#00bcd4' }, { name: 'Forja Volcánica', icon: '🔥', color: '#ff6347' }, { name: 'Picos de Tormenta', icon: '⛰️', color: '#607d8b' }],
+        ])[(level - 1) % 2];
+        
+        const createFallbackLevel = (theme, level) => {
+            const platforms = [{ x: 50, y: 400, width: 100, height: 20, type: 'normal' }];
+            let lastX = 150;
+            for (let i = 1; i < 20 + level * 2; i++) {
+                platforms.push({ x: lastX + 80 + Math.random() * 60, y: 350 + (Math.sin(i * 0.3) * 120), width: 70, height: 20, type: 'normal' });
+                lastX = platforms[platforms.length - 1].x;
+            }
+            platforms.push({ x: 2150, y: 400, width: 100, height: 20, type: 'normal' });
+            return {
+                platforms, enemies: [], collectibles: [], obstacles: [],
+                theme: { backgroundColor: '#1a1a2e', platformColor: '#808080', accentColor: '#e94560' },
+                levelName: `Fallback: ${theme} Nivel ${level}`, levelDescription: `Modo de respaldo para ${theme}`
+            };
+        };
+
+        const generateLevel = async () => {
+            setIsGenerating(true);
+            const selectedTheme = theme === 'custom' ? customTheme : theme;
+            const fallbackData = createFallbackLevel(selectedTheme, level);
+            setLevelData(fallbackData);
+            await new Promise(res => setTimeout(res, 1000)); // Simula carga
+            setGameState('playing');
+            setIsGenerating(false);
+        };
+
+        const updateGame = useCallback(() => {
+            if (gameState !== 'playing' || !levelData) return;
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const game = gameRefs.current;
+            const { player, camera, keys } = game;
+            game.time++;
+
+            // --- FONDOS MEJORADOS ---
+            ctx.fillStyle = levelData.theme.backgroundColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // Cuadrícula sutil animada
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            const gridSize = 50;
+            const offsetX = -camera.x % gridSize;
+            for (let x = offsetX; x < canvas.width; x += gridSize) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); }
+            for (let y = 0; y < canvas.height; y += gridSize) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke(); }
+            ctx.restore();
+
+
+            // Lógica de movimiento del jugador
+            const GRAVITY = 0.8; const JUMP_FORCE = -15; const MOVE_SPEED = 5;
+            if (keys['ArrowLeft'] || keys['a']) player.vx = -MOVE_SPEED;
+            else if (keys['ArrowRight'] || keys['d']) player.vx = MOVE_SPEED;
+            else player.vx *= 0.8;
+            if ((keys['ArrowUp'] || keys['w'] || keys[' ']) && player.grounded) { player.vy = JUMP_FORCE; }
+            player.vy += GRAVITY;
+            player.x += player.vx;
+            player.y += player.vy;
+            camera.x += (player.x - camera.x - canvas.width / 3) * 0.08;
+
+            // Colisiones con plataformas y dibujado
+            player.grounded = false;
+            levelData.platforms.forEach(p => {
+                if (player.x < p.x + p.width && player.x + player.width > p.x && player.y + player.height > p.y && player.y < p.y && player.vy >= 0) {
+                    player.y = p.y - player.height; player.vy = 0; player.grounded = true;
+                }
+                ctx.save();
+                ctx.translate(-camera.x, 0);
+                // --- PLATAFORMAS MEJORADAS ---
+                ctx.fillStyle = p.type === 'bouncy' ? levelData.theme.accentColor : levelData.theme.platformColor;
+                ctx.fillRect(p.x, p.y, p.width, p.height);
+                // Borde iluminado
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.fillRect(p.x, p.y, p.width, 3);
+                ctx.restore();
+            });
+            
+            // --- JUGADOR MEJORADO ---
+            ctx.save();
+            ctx.translate(-camera.x, 0);
+            ctx.globalAlpha = player.invulnerable && game.time % 10 < 5 ? 0.5 : 1;
+            // Sombra
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+            ctx.shadowBlur = 15;
+            ctx.shadowOffsetX = 5;
+            ctx.shadowOffsetY = 5;
+            // Animación de "respiración"
+            const breath = player.vx === 0 ? Math.sin(game.time * 0.1) * 2 : 0;
+            const playerDrawX = player.x - breath / 2;
+            const playerDrawY = player.y - breath / 2;
+            const playerDrawW = player.width + breath;
+            const playerDrawH = player.height + breath;
+            // Gradiente
+            const gradient = ctx.createLinearGradient(playerDrawX, playerDrawY, playerDrawX, playerDrawY + playerDrawH);
+            gradient.addColorStop(0, '#6c91e2');
+            gradient.addColorStop(1, '#4a90e2');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(playerDrawX, playerDrawY, playerDrawW, playerDrawH);
+            ctx.restore();
+
+            // Fin de nivel o muerte
+            if (player.x > 2200) setGameState('levelComplete');
+            if (player.y > canvas.height) { if (lives > 1) { setLives(l => l - 1); player.x = 50; player.y = 300; } else setGameState('gameOver'); }
+
+        }, [gameState, levelData, lives, score]);
+        
+        useEffect(() => {
+          const handleKey = (e, value) => { if(gameRefs.current.keys) gameRefs.current.keys[e.key] = value; };
+          const down = (e) => handleKey(e, true);
+          const up = (e) => handleKey(e, false);
+          window.addEventListener('keydown', down);
+          window.addEventListener('keyup', up);
+
+          const gameLoop = () => { updateGame(); animationRef.current = requestAnimationFrame(gameLoop); };
+          if (gameState === 'playing') animationRef.current = requestAnimationFrame(gameLoop);
+          
+          return () => {
+            window.removeEventListener('keydown', down);
+            window.removeEventListener('keyup', up);
+            if(animationRef.current) cancelAnimationFrame(animationRef.current);
+          };
+        }, [updateGame, gameState]);
+
+        const restartLevel = () => {
+          setLives(3);
+          gameRefs.current.player = { ...gameRefs.current.player, x: 50, y: 300, vx: 0, vy: 0 };
+          generateLevel();
+        };
+
+        const resetGame = () => {
+          setScore(0);
+          setLevel(1);
+          setLives(3);
+          setGameState('menu');
+        };
+
+        const nextLevel = () => { setLevel(l => l + 1); resetGame(); };
+
+        if (isGenerating) return <div className="text-center"><span className="text-6xl animate-pulse">✨</span><h2 className="text-3xl font-bold">Generando Nivel...</h2></div>;
+        if (gameState === 'levelComplete') return <div className="text-center space-y-6"><span className="text-7xl">🏆</span><h2 className="text-4xl font-bold">¡Nivel Completado!</h2><button onClick={nextLevel} className="px-8 py-3 bg-green-500 rounded-lg">Siguiente Nivel</button><button onClick={onExit} className="ml-4 px-8 py-3 bg-gray-600 rounded-lg">Menú Principal</button></div>;
+        if (gameState === 'gameOver') return <div className="text-center space-y-6"><span className="text-7xl">💀</span><h2 className="text-4xl font-bold text-red-400">Fin del Juego</h2><button onClick={restartLevel} className="px-8 py-3 bg-blue-500 rounded-lg">Intentar de Nuevo</button><button onClick={onExit} className="ml-4 px-8 py-3 bg-gray-600 rounded-lg">Menú Principal</button></div>;
+        if (gameState === 'playing' && levelData) return (
+          <div className="relative">
+            <canvas ref={canvasRef} width={800} height={600} className="border-2 border-slate-600 rounded-lg platformer-canvas" />
+            <div className="absolute top-4 left-4 text-white bg-slate-800/80 p-2 rounded">Vidas: {lives}</div>
+          </div>);
+        
+        return (
+          <div className="text-center space-y-8 max-w-4xl">
+            <h2 className="text-4xl font-bold">Elige un Tema</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {getThemesForLevel(level).map(t => (
+                <button key={t.name} onClick={() => { setTheme(t.name); generateLevel(); }} className="p-6 rounded-lg bg-slate-700 hover:bg-slate-600 transition-all hover:scale-105 group border-2" style={{borderColor: t.color}}>
+                  <div className="text-4xl">{t.icon}</div><span className="font-semibold">{t.name}</span>
+                </button>
+              ))}
+              <button onClick={() => setTheme('custom')} className="p-6 rounded-lg bg-slate-700 hover:bg-slate-600 transition-all hover:scale-105 group border-2 border-gray-400">
+                <span className="text-4xl">🎨</span><span className="font-semibold">Personalizado</span>
+              </button>
+            </div>
+            {theme === 'custom' && (
+              <div className="mt-6">
+                <input type="text" placeholder="Escribe tu tema..." value={customTheme} onChange={e => setCustomTheme(e.target.value)} className="px-4 py-3 bg-slate-800 rounded-lg text-white w-full"/>
+                <button onClick={() => customTheme.trim() && generateLevel()} disabled={!customTheme.trim()} className="mt-2 w-full px-6 py-3 bg-green-500 rounded-lg font-semibold">Generar</button>
+              </div>
+            )}
+            <button onClick={onExit} className="mt-8 px-6 py-2 bg-gray-600 rounded-lg">Volver al Menú</button>
+          </div>
+        );
+    };
+
+    // =======================================================================
+    // --- COMPONENTE PRINCIPAL Y SELECTOR DE JUEGO ---
+    // =======================================================================
+    const GameHub = () => {
+        const [gameMode, setGameMode] = useState('menu');
+
+        const MainMenu = () => (
+            <div className="text-center space-y-8">
+                <h1 className="text-6xl font-bold bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent">Game Hub</h1>
+                <p className="text-xl text-gray-300">Elige tu aventura.</p>
+                <div className="flex flex-col md:flex-row gap-6 justify-center">
+                    <button onClick={() => setGameMode('platformer')} className="px-10 py-5 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg font-semibold text-lg hover:scale-105 transition-transform shadow-lg">
+                        Aventura de Plataformas
+                    </button>
+                    <button onClick={() => setGameMode('maze')} className="px-10 py-5 bg-gradient-to-r from-teal-500 to-green-600 rounded-lg font-semibold text-lg hover:scale-105 transition-transform shadow-lg">
+                        Desafío de Laberinto
+                    </button>
+                </div>
+            </div>
+        );
+
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen p-4 text-white">
+                {gameMode === 'menu' && <MainMenu />}
+                {gameMode === 'platformer' && <PlatformerGame onExit={() => setGameMode('menu')} />}
+                {gameMode === 'maze' && <MazeGameWrapper onExit={() => setGameMode('menu')} />}
+            </div>
+        );
+    };
+
+    // Renderizar la aplicación principal
+    ReactDOM.render(<GameHub />, document.getElementById('root'));
+
+  </script>
+</body>
+</html>
