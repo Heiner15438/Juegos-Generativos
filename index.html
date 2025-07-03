@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <title>AI Platformer Game Mejorado</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>AI Platformer Game - Mobile Optimizado</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Press Start 2P for pixelated font -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <!-- React y ReactDOM -->
     <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
@@ -15,43 +16,127 @@
     <!-- Tone.js para efectos de sonido -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <style>
+        /* Custom styles for the game */
         body {
             background-color: #0f172a; /* bg-slate-900 */
             overflow: hidden;
-            font-family: 'Arial', sans-serif;
+            font-family: 'Inter', sans-serif; /* Default font as per instructions */
+            touch-action: manipulation; /* Prevent default touch behaviors */
+            -webkit-tap-highlight-color: transparent; /* Remove tap highlight */
         }
+        /* Apply Press Start 2P to elements with font-pixel class */
         .font-pixel {
-            font-family: 'Press Start 2P', 'Courier New', monospace;
+            font-family: 'Press Start 2P', cursive;
         }
-        /* Controles táctiles */
+        /* Canvas styling for responsive behavior */
+        canvas {
+            background-color: #1a1a2e; /* Matches levelData.theme.backgroundColor */
+            display: block;
+            width: 100%; /* Make canvas width responsive */
+            height: auto; /* Maintain aspect ratio */
+            max-width: 960px; /* Max width as per original design */
+            max-height: 640px; /* Max height as per original design */
+            aspect-ratio: 960 / 640; /* Lock aspect ratio */
+        }
+        /* Touch controls styling */
         .touch-controls {
             position: fixed;
-            bottom: 20px;
+            bottom: 10px;
             left: 0;
             right: 0;
             display: flex;
             justify-content: space-between;
-            padding: 0 30px;
+            padding: 0 15px;
             z-index: 100;
-            pointer-events: none; /* El contenedor no bloquea clics */
+            pointer-events: none; /* Container itself doesn't block clicks */
         }
         .touch-btn {
-            background-color: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.4);
+            background-color: rgba(255, 255, 255, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.6);
             border-radius: 50%;
-            width: 70px;
-            height: 70px;
+            width: 80px;
+            height: 80px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 32px;
             color: white;
             user-select: none;
-            pointer-events: auto; /* Los botones sí son interactivos */
-            transition: background-color 0.1s;
+            pointer-events: auto; /* Buttons are interactive */
+            transition: background-color 0.1s, transform 0.1s;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+            touch-action: manipulation;
         }
         .touch-btn:active {
-            background-color: rgba(255, 255, 255, 0.5);
+            background-color: rgba(255, 255, 255, 0.6);
+            transform: scale(0.95);
+        }
+        .touch-dpad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 5px;
+            pointer-events: auto;
+        }
+        .dpad-center {
+            grid-column: 2;
+            grid-row: 2;
+            background-color: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 50px;
+            height: 50px;
+        }
+        .dpad-btn {
+            background-color: rgba(255, 255, 255, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            border-radius: 8px;
+            transition: all 0.1s;
+        }
+        .dpad-btn:active {
+            background-color: rgba(255, 255, 255, 0.6);
+        }
+        .dpad-up { grid-column: 2; grid-row: 1; }
+        .dpad-left { grid-column: 1; grid-row: 2; }
+        .dpad-right { grid-column: 3; grid-row: 2; }
+        .dpad-down { grid-column: 2; grid-row: 3; }
+        
+        /* Mobile-specific adjustments */
+        @media (max-width: 768px) {
+            .touch-btn {
+                width: 70px;
+                height: 70px;
+                font-size: 28px;
+            }
+            .mobile-hidden {
+                display: none;
+            }
+            .mobile-full-height {
+                height: 100vh !important;
+            }
+        }
+        @media (max-width: 480px) {
+            .touch-btn {
+                width: 60px;
+                height: 60px;
+                font-size: 24px;
+            }
+            .dpad-btn {
+                width: 40px;
+                height: 40px;
+                font-size: 18px;
+            }
+            .dpad-center {
+                width: 40px;
+                height: 40px;
+            }
         }
     </style>
 </head>
@@ -62,14 +147,21 @@
 <script type="text/babel">
 // --- LÓGICA DEL JUEGO Y SIMULACIÓN DE API ---
 
+/**
+ * Creates a fallback level structure when the AI API call fails or is not available.
+ * This ensures the game can always generate a playable level.
+ * @param {string} theme - The chosen theme for the level.
+ * @param {number} level - The current level number, used to adjust difficulty.
+ * @returns {object} - An object containing level data (platforms, enemies, collectibles, obstacles, theme, etc.).
+ */
 const createFallbackLevel = (theme, level) => {
-    const difficulty = Math.min(level, 10);
+    const difficulty = Math.min(level, 10); // Cap difficulty at level 10
     const platforms = [{ x: 50, y: 450, width: 150, height: 20, type: 'normal' }];
     const platformCount = 15 + difficulty * 3;
     let lastX = 200;
 
     for (let i = 1; i < platformCount; i++) {
-        const gap = 90 + Math.random() * 70;
+        const gap = 90 + Math.random() * 70; // Horizontal gap between platforms
         const x = lastX + gap;
         const yVariation = Math.sin(i * 0.3) * 120 + Math.cos(i * 0.7) * 80;
         const y = 400 + yVariation;
@@ -78,7 +170,7 @@ const createFallbackLevel = (theme, level) => {
         
         platforms.push({
             x: x,
-            y: Math.max(100, Math.min(550, y)),
+            y: Math.max(100, Math.min(550, y)), // Keep platforms within a reasonable vertical range
             width: 70 + Math.random() * 50,
             height: 20,
             type,
@@ -91,7 +183,7 @@ const createFallbackLevel = (theme, level) => {
 
     const enemies = Array.from({ length: 2 + difficulty }, (_, i) => ({
         x: 300 + i * 250 + Math.random() * 100,
-        y: Math.random() > 0.5 ? 200 + Math.random() * 200 : 400,
+        y: Math.random() > 0.5 ? 200 + Math.random() * 200 : 400, // Randomize enemy start Y
         type: ['walker', 'flyer', 'jumper'][Math.floor(Math.random() * 3)],
         patrolRange: 80 + Math.random() * 40,
         speed: 0.5 + difficulty * 0.15
@@ -100,18 +192,19 @@ const createFallbackLevel = (theme, level) => {
     const collectibles = Array.from({ length: 10 + difficulty * 2 }, (_, i) => ({
         x: 150 + i * 150 + Math.random() * 60,
         y: 200 + Math.random() * 250,
-        type: Math.random() > 0.85 ? 'powerup' : 'gem',
-        value: Math.random() > 0.9 ? 50 : 10
+        type: Math.random() > 0.85 ? 'powerup' : 'gem', // Mostly gems, some powerups
+        value: Math.random() > 0.9 ? 50 : 10 // Higher value for powerups
     }));
 
     const obstacles = Array.from({ length: 3 + Math.floor(difficulty / 2) }, (_, i) => ({
         x: 400 + i * 300 + Math.random() * 100,
-        y: 435,
+        y: 435, // Spikes typically on the ground or platforms
         type: 'spike',
         width: 30 + Math.random() * 20,
         height: 15
     }));
 
+    // Add an exit platform at the end of the level
     platforms.push({ x: lastX + 250, y: 450, width: 100, height: 20, type: 'exit' });
 
     return {
@@ -131,19 +224,25 @@ const createFallbackLevel = (theme, level) => {
         },
         levelName: `Fallback: ${theme} - Nivel ${level}`,
         levelDescription: `Navega por el desafiante mundo de ${theme.toLowerCase()}`,
-        levelLength: lastX + 350
+        levelLength: lastX + 350 // Defines the total length of the level for camera bounds
     };
 };
 
-// Simulación de la API de IA
+// Simulated AI API for level generation.
+// In a real scenario, this would make a fetch call to a backend AI service.
 window.aiAPI = {
     complete: async (prompt) => {
         console.log("--- LLAMADA A LA API SIMULADA ---", prompt);
+        // Simulate network delay
         await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        // Extract theme and level from the prompt for the fallback level
         const themeMatch = prompt.match(/theme "([^"]+)"/);
         const theme = themeMatch ? themeMatch[1] : 'Mundo Misterioso';
         const levelMatch = prompt.match(/level (\d+)/);
         const level = levelMatch ? parseInt(levelMatch[1], 10) : 1;
+        
+        // Return a JSON string of the fallback level data
         const fallbackData = createFallbackLevel(theme, level);
         return JSON.stringify(fallbackData);
     }
@@ -153,40 +252,51 @@ window.aiAPI = {
 const { useState, useEffect, useRef, useCallback } = React;
 
 // --- Constantes del Juego ---
-const GRAVITY = 0.6;
-const JUMP_FORCE = -14;
-const MOVE_SPEED = 5;
-const PLAYER_WIDTH = 28;
-const PLAYER_HEIGHT = 36;
-const ENEMY_BOUNCE_FORCE = -8;
+const GRAVITY = 0.6; // Gravity strength
+const JUMP_FORCE = -14; // Player jump vertical velocity
+const MOVE_SPEED = 5; // Player horizontal movement speed
+const PLAYER_WIDTH = 28; // Player character width
+const PLAYER_HEIGHT = 36; // Player character height
+const ENEMY_BOUNCE_FORCE = -8; // Force applied to player when stomping an enemy
 
 const PlatformerGame = () => {
-    const canvasRef = useRef(null);
-    const animationRef = useRef(null);
-    const [gameState, setGameState] = useState('menu'); // menu, themeSelect, generating, playing, levelComplete, gameOver
-    const [theme, setTheme] = useState('');
-    const [customTheme, setCustomTheme] = useState('');
-    const [level, setLevel] = useState(1);
-    const [score, setScore] = useState(0);
-    const [lives, setLives] = useState(3);
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [levelData, setLevelData] = useState(null);
-    
-    // --- Referencias de estado del juego para evitar re-renders en el loop ---
+    const canvasRef = useRef(null); // Reference to the HTML canvas element
+    const animationRef = useRef(null); // Reference to the requestAnimationFrame ID for cancellation
+    const [gameState, setGameState] = useState('menu'); // Current state of the game
+    const [theme, setTheme] = useState(''); // Selected theme for the level
+    const [customTheme, setCustomTheme] = useState(''); // Custom theme input
+    const [level, setLevel] = useState(1); // Current level number
+    const [score, setScore] = useState(0); // Player's score
+    const [lives, setLives] = useState(3); // Player's remaining lives
+    const [isGenerating, setIsGenerating] = useState(false); // Flag for level generation status
+    const [levelData, setLevelData] = useState(null); // Stores the generated level data
+    const [isMobile, setIsMobile] = useState(false); // Flag for mobile detection
+
+    // Detect if device is mobile
+    useEffect(() => {
+        const checkIfMobile = () => {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        };
+        setIsMobile(checkIfMobile());
+    }, []);
+
+    // --- Game state references to avoid re-renders in the game loop ---
+    // This ref holds mutable game state that is updated frequently without triggering React re-renders.
     const gameRefs = useRef({
         player: { x: 100, y: 300, vx: 0, vy: 0, width: PLAYER_WIDTH, height: PLAYER_HEIGHT, grounded: false, invincible: 0 },
-        camera: { x: 0, y: 0 },
-        keys: {},
-        platformStates: new Map(),
-        enemyStates: new Map(),
-        collectibleStates: new Map(),
-        particles: [],
-        time: 0
+        camera: { x: 0, y: 0 }, // Camera position
+        keys: {}, // Object to track pressed keys
+        platformStates: new Map(), // Stores dynamic states of platforms (e.g., disappearing, moving)
+        enemyStates: new Map(), // Stores dynamic states of enemies (e.g., active, position)
+        collectibleStates: new Map(), // Stores active status of collectibles
+        particles: [], // Array to manage particle effects
+        time: 0 // Game time counter for animations
     });
 
-    // --- Efectos de Sonido con Tone.js ---
+    // --- Sound Effects with Tone.js ---
     const sounds = useRef(null);
     useEffect(() => {
+        // Initialize Tone.js synths for various sound effects
         sounds.current = {
             jump: new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.1, sustain: 0.05, release: 0.1 } }).toDestination(),
             collectGem: new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0, release: 0.1 } }).toDestination(),
@@ -196,13 +306,23 @@ const PlatformerGame = () => {
         };
     }, []);
 
+    /**
+     * Plays a specified sound effect using Tone.js.
+     * @param {string} sound - The key of the sound in the `sounds.current` object.
+     * @param {string|string[]} note - The musical note(s) to play.
+     * @param {string} duration - The duration of the note.
+     */
     const playSound = (sound, note, duration = '8n') => {
         if (sounds.current && sounds.current[sound]) {
             sounds.current[sound].triggerAttackRelease(note, duration);
         }
     };
 
-    // --- Generación de Niveles ---
+    // --- Level Generation ---
+    /**
+     * Asynchronously generates a new level using the simulated AI API.
+     * Updates game state based on the generated level data or falls back to a default.
+     */
     const generateLevel = useCallback(async () => {
         setIsGenerating(true);
         setGameState('generating');
@@ -212,18 +332,20 @@ const PlatformerGame = () => {
             const response = await window.aiAPI.complete(prompt);
             const data = JSON.parse(response);
             
-            // Inicializar estados para elementos dinámicos
+            // Initialize dynamic states for platforms (disappearing, moving)
             gameRefs.current.platformStates.clear();
             data.platforms.forEach((p, i) => {
                 if(p.type === 'disappearing') gameRefs.current.platformStates.set(i, { visible: true, timer: 0 });
                 else if(p.type === 'moving') gameRefs.current.platformStates.set(i, { offset: 0, dir: 1 });
             });
 
+            // Initialize dynamic states for enemies
             gameRefs.current.enemyStates.clear();
             data.enemies.forEach((e, i) => {
-                gameRefs.current.enemyStates.set(i, { ...e, active: true, initialX: e.x, dir: 1, jumpTimer: Math.random() * 120 });
+                gameRefs.current.enemyStates.set(i, { ...e, active: true, initialX: e.x, initialY: e.y, dir: 1, jumpTimer: Math.random() * 120 });
             });
 
+            // Initialize dynamic states for collectibles
             gameRefs.current.collectibleStates.clear();
             data.collectibles.forEach((c, i) => {
                 gameRefs.current.collectibleStates.set(i, { active: true });
@@ -233,19 +355,48 @@ const PlatformerGame = () => {
             setGameState('playing');
         } catch (error) {
             console.error('Error generando el nivel, usando fallback:', error);
-            // Implementar un fallback más robusto si es necesario
+            // Fallback to theme selection if generation fails
             setGameState('themeSelect');
         }
         setIsGenerating(false);
     }, [theme, customTheme, level]);
     
-    // --- Manejo de Controles (Teclado y Táctil) ---
+    // --- Input Handling (Keyboard and Touch) ---
+    /**
+     * Handles key press and release events, updating the `keys` state in `gameRefs`.
+     * @param {string} key - The key pressed or released.
+     * @param {boolean} isDown - True if the key is pressed, false if released.
+     */
     const handleKey = useCallback((key, isDown) => {
         gameRefs.current.keys[key.toLowerCase()] = isDown;
     }, []);
 
+    /**
+     * Handles touch events for the D-pad
+     * @param {string} direction - The direction of the button press
+     * @param {boolean} isDown - True for press, false for release
+     */
+    const handleDpad = useCallback((direction, isDown) => {
+        switch(direction) {
+            case 'left':
+                handleKey('a', isDown);
+                break;
+            case 'right':
+                handleKey('d', isDown);
+                break;
+            case 'up':
+                handleKey('w', isDown);
+                break;
+            case 'down':
+                // Optional: add ducking if needed
+                break;
+        }
+    }, [handleKey]);
+
     useEffect(() => {
+        // Event listeners for keyboard input
         const downListener = (e) => {
+            // Prevent default behavior for arrow keys and space to avoid scrolling
             if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' ', 'a', 'w', 'd'].includes(e.key.toLowerCase())) {
                 e.preventDefault();
             }
@@ -254,83 +405,126 @@ const PlatformerGame = () => {
         const upListener = (e) => handleKey(e.key, false);
         window.addEventListener('keydown', downListener);
         window.addEventListener('keyup', upListener);
+        
+        // Prevent context menu on long press on mobile
+        const contextMenuListener = (e) => e.preventDefault();
+        if (isMobile) {
+            window.addEventListener('contextmenu', contextMenuListener);
+        }
+        
         return () => {
+            // Cleanup event listeners on component unmount
             window.removeEventListener('keydown', downListener);
             window.removeEventListener('keyup', upListener);
+            window.removeEventListener('contextmenu', contextMenuListener);
         };
-    }, [handleKey]);
+    }, [handleKey, isMobile]);
 
-    // --- Lógica Principal del Juego (Game Loop) ---
+    // --- Main Game Loop ---
+    /**
+     * The core game loop function. Updates game state, handles rendering, and requests the next frame.
+     */
     const gameLoop = useCallback(() => {
-        if (gameState !== 'playing' || !levelData) return;
+        if (gameState !== 'playing' || !levelData) {
+            animationRef.current = null; // Ensure loop stops if game state changes
+            return;
+        }
         const canvas = canvasRef.current;
-        if (!canvas) return;
+        if (!canvas) {
+            animationRef.current = null;
+            return;
+        }
         const ctx = canvas.getContext('2d');
         const game = gameRefs.current;
         
-        // 1. Actualizar estado (lógica)
+        // 1. Update game state (logic)
         updatePlayer(game, levelData, playSound);
         updateEnemies(game, levelData);
         updatePlatforms(game, levelData);
         updateParticles(game);
         handleCollisions(game, levelData, setLives, setScore, setGameState, playSound);
         
-        // 2. Actualizar cámara
-        game.camera.x += (game.player.x - game.camera.x - canvas.width / 3.5) * 0.08;
+        // 2. Update camera position to follow the player
+        // Smooth camera movement, centering the player horizontally
+        const cameraTarget = isMobile ? canvas.width / 2.5 : canvas.width / 3.5;
+        game.camera.x += (game.player.x - game.camera.x - cameraTarget) * 0.08;
+        // Clamp camera to level bounds
+        game.camera.x = Math.max(0, Math.min(game.camera.x, levelData.levelLength - canvas.width));
         
-        // 3. Dibujar todo
+        // 3. Draw all game elements
         drawGame(ctx, game, levelData, canvas, lives, score);
 
-        animationRef.current = requestAnimationFrame(gameLoop);
-    }, [gameState, levelData, lives, score]);
+        game.time++; // Increment game time
+        animationRef.current = requestAnimationFrame(gameLoop); // Request next animation frame
+    }, [gameState, levelData, lives, score, isMobile]); // Dependencies for useCallback
 
     useEffect(() => {
+        // Start or stop the game loop based on gameState
         if (gameState === 'playing') {
-            gameLoop();
+            animationRef.current = requestAnimationFrame(gameLoop);
+        } else {
+            if (animationRef.current) cancelAnimationFrame(animationRef.current);
+            animationRef.current = null;
         }
         return () => {
+            // Cleanup on component unmount or state change
             if (animationRef.current) cancelAnimationFrame(animationRef.current);
         };
     }, [gameState, gameLoop]);
 
-    // --- Funciones de Lógica Separadas ---
+    // --- Separate Game Logic Functions ---
+
+    /**
+     * Updates the player's position, velocity, and state based on input and gravity.
+     * @param {object} game - The mutable game state object from `gameRefs.current`.
+     * @param {object} levelData - The current level's data.
+     * @param {function} playSound - Function to play sound effects.
+     */
     const updatePlayer = (game, levelData, playSound) => {
         const { player, keys } = game;
-        // Movimiento horizontal
+        // Horizontal movement based on keys
         if (keys['arrowleft'] || keys['a']) player.vx = -MOVE_SPEED;
         else if (keys['arrowright'] || keys['d']) player.vx = MOVE_SPEED;
-        else player.vx *= (player.onIce ? 0.98 : 0.8);
+        else player.vx *= (player.onIce ? 0.98 : 0.8); // Apply friction, less on ice
 
-        // Salto
+        // Jump logic
         if ((keys['arrowup'] || keys['w'] || keys[' ']) && player.grounded) {
             player.vy = JUMP_FORCE;
             player.grounded = false;
             playSound('jump', 'C5');
-            createParticles(game.particles, player.x + player.width / 2, player.y + player.height, 5, '#ffffff');
+            createParticles(game.particles, player.x + player.width / 2, player.y + player.height, isMobile ? 3 : 5, '#ffffff');
         }
 
-        // Aplicar gravedad y actualizar posición
+        // Apply gravity and update position
         player.vy += GRAVITY;
         player.x += player.vx;
         player.y += player.vy;
-        player.grounded = false;
-        player.onIce = false;
-        if (player.invincible > 0) player.invincible--;
+        player.grounded = false; // Reset grounded status each frame
+        player.onIce = false; // Reset ice status each frame
+        if (player.invincible > 0) player.invincible--; // Decrement invincibility timer
     };
 
+    /**
+     * Updates the state and position of all active enemies.
+     * @param {object} game - The mutable game state object.
+     * @param {object} levelData - The current level's data.
+     */
     const updateEnemies = (game, levelData) => {
-        game.enemyStates.forEach((enemy, index) => {
-            if (!enemy.active) return;
+        game.enemyStates.forEach((enemy) => {
+            if (!enemy.active) return; // Skip inactive enemies
             switch(enemy.type) {
                 case 'walker':
                     enemy.x += enemy.speed * enemy.dir;
+                    // Reverse direction if out of patrol range
                     if (Math.abs(enemy.x - enemy.initialX) > enemy.patrolRange) {
                         enemy.dir *= -1;
                     }
                     break;
                 case 'flyer':
                     enemy.x += enemy.speed * enemy.dir;
+                    // Oscillate vertically
                     enemy.y = enemy.initialY + Math.sin(game.time * 0.05) * 30;
+                    // Reverse horizontal direction if out of patrol range
                     if (Math.abs(enemy.x - enemy.initialX) > enemy.patrolRange) {
                         enemy.dir *= -1;
                     }
@@ -338,12 +532,12 @@ const PlatformerGame = () => {
                 case 'jumper':
                     enemy.jumpTimer--;
                     if (enemy.jumpTimer <= 0) {
-                        enemy.vy = -8; // Fuerza de salto del enemigo
-                        enemy.jumpTimer = 120 + Math.random() * 60;
+                        enemy.vy = -8; // Jump force for jumper enemies
+                        enemy.jumpTimer = 120 + Math.random() * 60; // Reset jump timer
                     }
-                    enemy.vy = (enemy.vy || 0) + GRAVITY * 0.5;
+                    enemy.vy = (enemy.vy || 0) + GRAVITY * 0.5; // Apply reduced gravity to jumpers
                     enemy.y += enemy.vy;
-                    // Simple colisión con el suelo para que no caiga
+                    // Simple ground collision for jumpers to keep them on screen
                     if (enemy.y > 450) {
                         enemy.y = 450;
                         enemy.vy = 0;
@@ -353,35 +547,53 @@ const PlatformerGame = () => {
         });
     };
 
+    /**
+     * Updates the state of dynamic platforms (moving, disappearing).
+     * @param {object} game - The mutable game state object.
+     * @param {object} levelData - The current level's data.
+     */
     const updatePlatforms = (game, levelData) => {
         const { platformStates } = game;
         levelData.platforms.forEach((platform, index) => {
             const state = platformStates.get(index);
-            if (!state) return;
+            if (!state) return; // Skip if no dynamic state is needed
+
             if (platform.type === 'moving') {
                 state.offset += (platform.movementSpeed || 1) * state.dir;
+                // Reverse direction if platform reaches its movement limit
                 if (Math.abs(state.offset) >= (platform.movementRange || 50)) state.dir *= -1;
             }
             if (platform.type === 'disappearing') {
                 if (state.timer > 0) {
                     state.timer--;
                     if (state.timer === 0) {
-                        state.visible = !state.visible;
-                        state.timer = state.visible ? 180 : 90; // Tiempo visible / invisible
+                        state.visible = !state.visible; // Toggle visibility
+                        state.timer = state.visible ? 180 : 90; // Set timer for visible/invisible phase
                     }
                 }
             }
         });
     };
 
+    /**
+     * Handles all collision detection and resolution for the player.
+     * @param {object} game - The mutable game state object.
+     * @param {object} levelData - The current level's data.
+     * @param {function} setLives - React setter for lives state.
+     * @param {function} setScore - React setter for score state.
+     * @param {function} setGameState - React setter for game state.
+     * @param {function} playSound - Function to play sound effects.
+     */
     const handleCollisions = (game, levelData, setLives, setScore, setGameState, playSound) => {
         const { player, platformStates, enemyStates, collectibleStates, particles } = game;
 
-        // Colisión con plataformas
+        // Collision with platforms
         levelData.platforms.forEach((platform, index) => {
             const state = platformStates.get(index);
+            // Skip disappearing platforms if they are currently invisible
             if (platform.type === 'disappearing' && !state.visible) return;
 
+            // Calculate current platform position for moving platforms
             let pX = platform.x;
             let pY = platform.y;
             if (platform.type === 'moving' && state) {
@@ -389,121 +601,167 @@ const PlatformerGame = () => {
                 else pX += state.offset;
             }
 
-            if (player.vy >= 0 &&
-                player.x + player.width > pX && player.x < pX + platform.width &&
-                player.y + player.height > pY && player.y + player.height < pY + 20) {
+            // Check for collision from above (player landing on platform)
+            if (player.vy >= 0 && // Player is falling or still
+                player.x + player.width > pX && player.x < pX + platform.width && // Horizontal overlap
+                player.y + player.height > pY && player.y + player.height < pY + 20) { // Player's feet are just above or on the platform
                 
-                player.y = pY - player.height;
-                player.vy = 0;
-                player.grounded = true;
+                player.y = pY - player.height; // Snap player to top of platform
+                player.vy = 0; // Stop vertical movement
+                player.grounded = true; // Mark player as grounded
                 
+                // Handle specific platform types
                 if (platform.type === 'bouncy') {
-                    player.vy = JUMP_FORCE * 1.6;
+                    player.vy = JUMP_FORCE * 1.6; // Higher jump force
                     playSound('jump', 'G5');
-                    createParticles(particles, player.x + player.width / 2, player.y + player.height, 10, levelData.theme.bouncyColor);
+                    createParticles(particles, player.x + player.width / 2, player.y + player.height, isMobile ? 7 : 10, levelData.theme.bouncyColor);
                 }
-                if (platform.type === 'ice') player.onIce = true;
-                if (platform.type === 'disappearing' && state.timer === 0) state.timer = 30; // Inicia el temporizador al tocarla
+                if (platform.type === 'ice') player.onIce = true; // Player is on ice
+                if (platform.type === 'disappearing' && state.timer === 0) {
+                    state.timer = 30; // Start timer for disappearing platform
+                }
                 if (platform.type === 'exit') {
                     playSound('levelComplete', ["C4", "E4", "G4", "C5"], "0.5s");
-                    setGameState('levelComplete');
+                    setGameState('levelComplete'); // Advance to level complete screen
                 }
             }
         });
 
-        // Colisión con enemigos
+        // Collision with enemies
         enemyStates.forEach((enemy, index) => {
-            if (!enemy.active) return;
+            if (!enemy.active) return; // Skip inactive enemies
+            // Simple AABB collision detection
             if (player.x < enemy.x + 20 && player.x + player.width > enemy.x &&
                 player.y < enemy.y + 20 && player.y + player.height > enemy.y) {
                 
+                // Check if player is stomping on the enemy (falling and hitting from above)
                 if (player.vy > 0 && (player.y + player.height) < (enemy.y + 15)) { // Stomp
-                    enemy.active = false;
-                    player.vy = ENEMY_BOUNCE_FORCE;
-                    setScore(prev => prev + 50);
+                    enemy.active = false; // Deactivate enemy
+                    player.vy = ENEMY_BOUNCE_FORCE; // Player bounces up
+                    setScore(prev => prev + 50); // Increase score
                     playSound('enemyStomp', 'C4');
-                    createParticles(particles, enemy.x, enemy.y, 15, levelData.theme.enemyColor);
-                } else if (player.invincible === 0) { // Hit
-                    player.invincible = 60; // 1 segundo de invencibilidad
-                    setLives(prev => prev - 1);
+                    createParticles(particles, enemy.x + 10, enemy.y + 10, isMobile ? 10 : 15, levelData.theme.enemyColor);
+                } else if (player.invincible === 0) { // Player takes damage if not stomping and not invincible
+                    player.invincible = 60; // 1 second (60 frames) of invincibility
+                    setLives(prev => prev - 1); // Lose a life
                     playSound('hit', 'C2');
+                    createParticles(particles, player.x + player.width / 2, player.y + player.height / 2, isMobile ? 7 : 10, levelData.theme.playerColor);
                 }
             }
         });
 
-        // Colisión con coleccionables
+        // Collision with collectibles
         collectibleStates.forEach((collectible, index) => {
             const c_data = levelData.collectibles[index];
-            if (collectible.active && player.x < c_data.x + 15 && player.x + player.width > c_data.x &&
+            if (collectible.active && // Only check active collectibles
+                player.x < c_data.x + 15 && player.x + player.width > c_data.x &&
                 player.y < c_data.y + 15 && player.y + player.height > c_data.y) {
-                collectible.active = false;
-                setScore(prev => prev + c_data.value);
+                
+                collectible.active = false; // Deactivate collectible
+                setScore(prev => prev + c_data.value); // Add score
                 playSound('collectGem', 'A5');
-                createParticles(particles, c_data.x, c_data.y, 8, levelData.theme.gemColor);
+                createParticles(particles, c_data.x + 7.5, c_data.y + 7.5, isMobile ? 5 : 8, levelData.theme.gemColor);
             }
         });
 
-        // Colisión con obstáculos
+        // Collision with obstacles (spikes)
         levelData.obstacles.forEach(obstacle => {
-            if (player.invincible === 0 && player.x < obstacle.x + obstacle.width && player.x + player.width > obstacle.x &&
-                player.y + player.height > obstacle.y) {
-                player.invincible = 60;
-                setLives(prev => prev - 1);
+            // Check for collision if player is not invincible
+            if (player.invincible === 0 && 
+                player.x < obstacle.x + obstacle.width && player.x + player.width > obstacle.x &&
+                player.y + player.height > obstacle.y) { // Player's bottom touches obstacle top
+                
+                player.invincible = 60; // Grant invincibility
+                setLives(prev => prev - 1); // Lose a life
                 playSound('hit', 'C2');
+                createParticles(particles, player.x + player.width / 2, player.y + player.height / 2, isMobile ? 7 : 10, levelData.theme.spikeColor);
             }
         });
 
-        // Caída fuera del mapa
-        if (player.y > 650) {
-            setLives(prev => prev - 1);
-            if (lives - 1 <= 0) {
-                setGameState('gameOver');
+        // Check if player falls out of the map
+        if (player.y > 650) { // Below the visible canvas area
+            setLives(prev => prev - 1); // Lose a life
+            if (lives - 1 <= 0) { // Check if lives run out
+                setGameState('gameOver'); // Transition to game over
             } else {
+                // Reset player position and camera for next attempt
                 player.x = 100; player.y = 300; player.vx = 0; player.vy = 0;
                 game.camera.x = 0;
             }
         }
     };
 
-    // --- Funciones de Dibujado ---
+    // --- Drawing Functions ---
+
+    /**
+     * Clears the canvas and draws all game elements.
+     * @param {CanvasRenderingContext2D} ctx - The 2D rendering context of the canvas.
+     * @param {object} game - The mutable game state object.
+     * @param {object} levelData - The current level's data.
+     * @param {HTMLCanvasElement} canvas - The canvas element.
+     * @param {number} lives - Current lives count.
+     * @param {number} score - Current score.
+     */
     const drawGame = (ctx, game, levelData, canvas, lives, score) => {
         const { theme } = levelData;
+        // Clear canvas with background color
         ctx.fillStyle = theme.backgroundColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.save();
+        
+        ctx.save(); // Save current canvas state
+        // Apply camera translation to draw game world relative to camera
         ctx.translate(-game.camera.x, 0);
 
+        // Draw all game elements
         drawPlatforms(ctx, game, levelData);
         drawCollectibles(ctx, game, levelData);
         drawEnemies(ctx, game, levelData);
         drawObstacles(ctx, game, levelData);
-        drawPlayer(ctx, game);
+        drawPlayer(ctx, game, levelData); // Pass levelData for player color
         drawParticles(ctx, game);
 
-        ctx.restore();
-        drawUI(ctx, canvas, lives, score);
+        ctx.restore(); // Restore canvas state (undo translation)
+        drawUI(ctx, canvas, lives, score); // Draw UI elements (lives, score)
     };
 
-    const drawPlayer = (ctx, game) => {
+    /**
+     * Draws the player character on the canvas.
+     * @param {CanvasRenderingContext2D} ctx - The 2D rendering context.
+     * @param {object} game - The mutable game state object.
+     * @param {object} levelData - The current level's data for player color.
+     */
+    const drawPlayer = (ctx, game, levelData) => {
         const { player } = game;
         ctx.save();
-        // Efecto de parpadeo cuando es invencible
+        // Invincibility flicker effect
         if (player.invincible > 0 && Math.floor(player.invincible / 4) % 2 === 0) {
             ctx.globalAlpha = 0.5;
         }
-        // Squish and stretch
+        // Simple squish and stretch effect based on vertical velocity and grounded state
         const stretch = 1 - Math.min(10, Math.abs(player.vy)) * 0.03;
         const squish = player.grounded ? Math.max(0.1, 1 - Math.abs(player.vx) * 0.05) : 1;
         
+        // Translate to player's center bottom for rotation/scaling origin
         ctx.translate(player.x + player.width / 2, player.y + player.height);
-        ctx.scale(squish, stretch);
+        ctx.scale(squish, stretch); // Apply squish/stretch
         
         ctx.fillStyle = levelData.theme.playerColor;
         ctx.beginPath();
-        ctx.rect(-player.width/2, -player.height, player.width, player.height);
+        // Draw rounded rectangle for player body
+        const radius = 5;
+        ctx.moveTo(-player.width/2 + radius, -player.height);
+        ctx.lineTo(player.width/2 - radius, -player.height);
+        ctx.arcTo(player.width/2, -player.height, player.width/2, -player.height + radius, radius);
+        ctx.lineTo(player.width/2, -radius);
+        ctx.arcTo(player.width/2, 0, player.width/2 - radius, 0, radius);
+        ctx.lineTo(-player.width/2 + radius, 0);
+        ctx.arcTo(-player.width/2, 0, -player.width/2, -radius, radius);
+        ctx.lineTo(-player.width/2, -player.height + radius);
+        ctx.arcTo(-player.width/2, -player.height, -player.width/2 + radius, -player.height, radius);
+        ctx.closePath();
         ctx.fill();
         
-        // Ojo
+        // Draw simple eye
         ctx.fillStyle = 'white';
         ctx.beginPath();
         ctx.arc(player.vx > 0.1 ? 4 : (player.vx < -0.1 ? -4 : 0), -player.height/2, 4, 0, Math.PI * 2);
@@ -513,60 +771,91 @@ const PlatformerGame = () => {
         ctx.arc(player.vx > 0.1 ? 5 : (player.vx < -0.1 ? -3 : 0), -player.height/2, 2, 0, Math.PI * 2);
         ctx.fill();
         
-        ctx.restore();
+        ctx.restore(); // Restore canvas state
     };
 
+    /**
+     * Draws all platforms on the canvas.
+     * @param {CanvasRenderingContext2D} ctx - The 2D rendering context.
+     * @param {object} game - The mutable game state object.
+     * @param {object} levelData - The current level's data.
+     */
     const drawPlatforms = (ctx, game, levelData) => {
         const { theme } = levelData;
         levelData.platforms.forEach((platform, index) => {
             const state = game.platformStates.get(index);
             if (platform.type === 'disappearing') {
-                if (!state.visible) return;
-                ctx.globalAlpha = Math.max(0, state.timer / 30);
+                if (!state.visible) return; // Don't draw if invisible
+                ctx.globalAlpha = Math.max(0, state.timer / 30); // Fade out effect
             }
 
             let pX = platform.x, pY = platform.y;
+            // Adjust position for moving platforms
             if (platform.type === 'moving' && state) {
                 if (platform.movementDirection === 'vertical') pY += state.offset;
                 else pX += state.offset;
             }
 
+            // Set fill style based on platform type
             ctx.fillStyle = platform.type === 'bouncy' ? theme.bouncyColor :
                             platform.type === 'ice' ? theme.iceColor :
                             platform.type === 'exit' ? theme.exitColor :
                             theme.platformColor;
             ctx.fillRect(pX, pY, platform.width, platform.height);
-            ctx.globalAlpha = 1;
+            ctx.globalAlpha = 1; // Reset alpha after drawing
         });
     };
 
+    /**
+     * Draws all active enemies on the canvas.
+     * @param {CanvasRenderingContext2D} ctx - The 2D rendering context.
+     * @param {object} game - The mutable game state object.
+     * @param {object} levelData - The current level's data.
+     */
     const drawEnemies = (ctx, game, levelData) => {
         const { theme } = levelData;
         game.enemyStates.forEach(enemy => {
-            if (!enemy.active) return;
+            if (!enemy.active) return; // Don't draw inactive enemies
             ctx.fillStyle = theme.enemyColor;
-            ctx.fillRect(enemy.x, enemy.y, 20, 20); // Simple rect for now
+            // Draw a simple circle for enemies
+            ctx.beginPath();
+            ctx.arc(enemy.x + 10, enemy.y + 10, 10, 0, Math.PI * 2);
+            ctx.fill();
         });
     };
     
+    /**
+     * Draws all active collectibles on the canvas.
+     * @param {CanvasRenderingContext2D} ctx - The 2D rendering context.
+     * @param {object} game - The mutable game state object.
+     * @param {object} levelData - The current level's data.
+     */
     const drawCollectibles = (ctx, game, levelData) => {
         const { theme } = levelData;
         game.collectibleStates.forEach((collectible, index) => {
             const c_data = levelData.collectibles[index];
-            if (!collectible.active) return;
+            if (!collectible.active) return; // Don't draw inactive collectibles
             ctx.fillStyle = c_data.type === 'gem' ? theme.gemColor : theme.powerupColor;
             ctx.save();
+            // Rotate collectibles for a sparkling effect
             ctx.translate(c_data.x + 7.5, c_data.y + 7.5);
-            ctx.rotate(game.time * 0.05);
-            ctx.fillRect(-7.5, -7.5, 15, 15);
+            ctx.rotate(game.time * 0.05); // Rotate based on game time
+            ctx.fillRect(-7.5, -7.5, 15, 15); // Draw a square
             ctx.restore();
         });
     };
     
+    /**
+     * Draws all obstacles (spikes) on the canvas.
+     * @param {CanvasRenderingContext2D} ctx - The 2D rendering context.
+     * @param {object} game - The mutable game state object.
+     * @param {object} levelData - The current level's data.
+     */
     const drawObstacles = (ctx, game, levelData) => {
         const { theme } = levelData;
         ctx.fillStyle = theme.spikeColor;
         levelData.obstacles.forEach(obstacle => {
+            // Draw a triangle for spikes
             ctx.beginPath();
             ctx.moveTo(obstacle.x, obstacle.y + obstacle.height);
             ctx.lineTo(obstacle.x + obstacle.width / 2, obstacle.y);
@@ -576,138 +865,252 @@ const PlatformerGame = () => {
         });
     };
 
+    /**
+     * Draws the game UI (lives and score) on the canvas.
+     * @param {CanvasRenderingContext2D} ctx - The 2D rendering context.
+     * @param {HTMLCanvasElement} canvas - The canvas element.
+     * @param {number} lives - Current lives count.
+     * @param {number} score - Current score.
+     */
     const drawUI = (ctx, canvas, lives, score) => {
         ctx.fillStyle = '#fff';
-        ctx.font = '24px "Press Start 2P", monospace';
+        ctx.font = '24px "Press Start 2P", monospace'; // Use pixel font for UI
         ctx.textAlign = 'left';
         ctx.fillText(`VIDAS: ${lives}`, 20, 40);
         ctx.textAlign = 'right';
         ctx.fillText(`PUNTOS: ${score}`, canvas.width - 20, 40);
     };
 
-    // --- Partículas ---
+    // --- Particle System Functions ---
+
+    /**
+     * Creates new particles at a given position.
+     * @param {Array} particles - The array to add particles to.
+     * @param {number} x - X coordinate for particles.
+     * @param {number} y - Y coordinate for particles.
+     * @param {number} count - Number of particles to create.
+     * @param {string} color - Color of the particles.
+     */
     const createParticles = (particles, x, y, count, color) => {
         for (let i = 0; i < count; i++) {
             particles.push({
                 x, y,
-                vx: (Math.random() - 0.5) * 4,
-                vy: (Math.random() - 0.5) * 4 - 2,
-                life: 30 + Math.random() * 20,
+                vx: (Math.random() - 0.5) * 4, // Random horizontal velocity
+                vy: (Math.random() - 0.5) * 4 - 2, // Random vertical velocity (upwards bias)
+                life: 30 + Math.random() * 20, // Random lifespan
                 color
             });
         }
     };
 
+    /**
+     * Updates the position and lifespan of all active particles.
+     * @param {object} game - The mutable game state object.
+     */
     const updateParticles = (game) => {
         for (let i = game.particles.length - 1; i >= 0; i--) {
             const p = game.particles[i];
             p.x += p.vx;
             p.y += p.vy;
-            p.vy += 0.1; // gravity on particles
-            p.life--;
-            if (p.life <= 0) game.particles.splice(i, 1);
+            p.vy += 0.1; // Apply gravity to particles
+            p.life--; // Decrement lifespan
+            if (p.life <= 0) game.particles.splice(i, 1); // Remove dead particles
         }
     };
 
+    /**
+     * Draws all active particles on the canvas.
+     * @param {CanvasRenderingContext2D} ctx - The 2D rendering context.
+     * @param {object} game - The mutable game state object.
+     */
     const drawParticles = (ctx, game) => {
         game.particles.forEach(p => {
-            ctx.globalAlpha = p.life / 50;
+            ctx.globalAlpha = p.life / 50; // Fade out particles as they die
             ctx.fillStyle = p.color;
-            ctx.fillRect(p.x, p.y, 3, 3);
+            ctx.fillRect(p.x, p.y, 3, 3); // Draw small squares for particles
         });
-        ctx.globalAlpha = 1;
+        ctx.globalAlpha = 1; // Reset alpha after drawing particles
     };
 
-    // --- Funciones de Flujo del Juego ---
+    // --- Game Flow Functions ---
+
+    /**
+     * Resets game state for a new level.
+     * @param {number} newLevel - The level number to transition to.
+     */
     const resetForNewLevel = (newLevel) => {
         setLevel(newLevel);
-        setTheme('');
+        setTheme(''); // Reset theme selection
         setCustomTheme('');
-        setGameState('themeSelect');
+        setGameState('themeSelect'); // Go back to theme selection
+        // Reset player and camera state
         gameRefs.current.player = { x: 100, y: 300, vx: 0, vy: 0, width: PLAYER_WIDTH, height: PLAYER_HEIGHT, grounded: false, invincible: 0 };
         gameRefs.current.camera.x = 0;
-        gameRefs.current.particles = [];
+        gameRefs.current.particles = []; // Clear particles
     };
 
+    /**
+     * Restarts the game from the beginning.
+     */
     const restartGame = () => {
         setScore(0);
         setLives(3);
-        resetForNewLevel(1);
+        resetForNewLevel(1); // Start from level 1
     };
 
     // --- Renderizado del Componente ---
+    /**
+     * Renders the appropriate screen based on the current `gameState`.
+     */
     const renderScreen = () => {
         switch (gameState) {
             case 'menu':
                 return (
-                    <div className="text-center space-y-8 animate-pulse">
-                        <h1 className="text-5xl md:text-7xl font-pixel bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent">AI PLATFORMER</h1>
-                        <button onClick={() => { Tone.start(); setGameState('themeSelect'); }} className="px-10 py-5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg font-semibold text-xl shadow-lg hover:scale-105 transition-transform">
+                    <div className="text-center space-y-8 animate-fade-in">
+                        <h1 className="text-4xl md:text-7xl font-pixel bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent drop-shadow-lg">AI PLATFORMER</h1>
+                        <button 
+                            onClick={() => { Tone.start(); setGameState('themeSelect'); }} 
+                            className="px-8 py-4 md:px-10 md:py-5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg font-semibold text-lg md:text-xl shadow-lg hover:scale-105 transition-transform transform-gpu focus:outline-none focus:ring-4 focus:ring-blue-300 active:scale-95"
+                        >
                             COMENZAR AVENTURA
                         </button>
                     </div>
                 );
             case 'themeSelect':
-                const themes = [{ name: 'Cuevas de Cristal', icon: '💎', color: '#e94560' }, { name: 'Biblioteca Flotante', icon: '📚', color: '#9b59b6' }, { name: 'Dimensión Espejo', icon: '👁️', color: '#3498db' }];
+                const themes = [
+                    { name: 'Cuevas de Cristal', icon: '💎', color: '#e94560' }, 
+                    { name: 'Biblioteca Flotante', icon: '📚', color: '#9b59b6' }, 
+                    { name: 'Dimensión Espejo', icon: '👁️', color: '#3498db' }
+                ];
                 return (
-                    <div className="text-center space-y-8 max-w-4xl">
-                        <h2 className="text-4xl font-pixel">Elige un Tema para el Nivel {level}</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="text-center space-y-8 max-w-4xl w-full px-4 animate-fade-in">
+                        <h2 className="text-3xl md:text-4xl font-pixel text-white drop-shadow-md">Elige un Tema para el Nivel {level}</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
                             {themes.map((t) => (
-                                <button key={t.name} onClick={() => { setTheme(t.name); generateLevel(); }} className="p-8 rounded-lg bg-slate-700 hover:bg-slate-600 transition-all hover:scale-105 group border-4" style={{ borderColor: t.color }}>
-                                    <div className="text-5xl mb-2">{t.icon}</div>
-                                    <span className="font-semibold text-xl">{t.name}</span>
+                                <button 
+                                    key={t.name} 
+                                    onClick={() => { setTheme(t.name); generateLevel(); }} 
+                                    className="p-6 md:p-8 rounded-xl bg-slate-700 hover:bg-slate-600 transition-all hover:scale-105 group border-4 flex flex-col items-center justify-center space-y-2 focus:outline-none focus:ring-4 focus:ring-offset-2" 
+                                    style={{ borderColor: t.color, '--tw-ring-color': t.color }}
+                                >
+                                    <div className="text-4xl md:text-5xl mb-2 group-hover:animate-bounce-once">{t.icon}</div>
+                                    <span className="font-semibold text-lg md:text-xl text-white">{t.name}</span>
                                 </button>
                             ))}
                         </div>
                     </div>
                 );
             case 'generating':
-                return <div className="text-center"><span className="text-6xl animate-spin">⚙️</span><h2 className="text-4xl font-pixel mt-4">Generando Nivel...</h2></div>;
+                return (
+                    <div className="text-center animate-pulse">
+                        <span className="text-6xl block mb-4">⚙️</span>
+                        <h2 className="text-3xl md:text-4xl font-pixel text-white">Generando Nivel...</h2>
+                        <p className="text-base md:text-lg text-slate-400 mt-2">¡La IA está creando tu aventura!</p>
+                    </div>
+                );
             case 'playing':
                 return (
-                    <div className="relative w-full h-full flex items-center justify-center">
-                        <canvas ref={canvasRef} width={960} height={640} className="border-4 border-slate-600 rounded-lg shadow-2xl max-w-full max-h-[95vh] object-contain" />
+                    <div className="relative w-full h-full flex flex-col items-center justify-center mobile-full-height">
+                        <canvas 
+                            ref={canvasRef} 
+                            width={960} 
+                            height={640} 
+                            className="border-4 border-slate-600 rounded-lg shadow-2xl max-w-full max-h-[90vh] object-contain" 
+                            style={{ touchAction: 'none' }}
+                        />
+                        {/* Touch controls for mobile devices */}
                         <div className="touch-controls md:hidden">
-                            <div className="flex gap-4">
-                                <button id="touch-left" className="touch-btn" onTouchStart={() => handleKey('a', true)} onTouchEnd={() => handleKey('a', false)}>◄</button>
-                                <button id="touch-right" className="touch-btn" onTouchStart={() => handleKey('d', true)} onTouchEnd={() => handleKey('d', false)}>►</button>
+                            <div className="touch-dpad">
+                                <button 
+                                    className="dpad-btn dpad-up"
+                                    onTouchStart={(e) => { e.preventDefault(); handleDpad('up', true); }}
+                                    onTouchEnd={(e) => { e.preventDefault(); handleDpad('up', false); }}
+                                >
+                                    ▲
+                                </button>
+                                <button 
+                                    className="dpad-btn dpad-left"
+                                    onTouchStart={(e) => { e.preventDefault(); handleDpad('left', true); }}
+                                    onTouchEnd={(e) => { e.preventDefault(); handleDpad('left', false); }}
+                                >
+                                    ◄
+                                </button>
+                                <div className="dpad-center"></div>
+                                <button 
+                                    className="dpad-btn dpad-right"
+                                    onTouchStart={(e) => { e.preventDefault(); handleDpad('right', true); }}
+                                    onTouchEnd={(e) => { e.preventDefault(); handleDpad('right', false); }}
+                                >
+                                    ►
+                                </button>
+                                <button 
+                                    className="dpad-btn dpad-down"
+                                    onTouchStart={(e) => { e.preventDefault(); handleDpad('down', true); }}
+                                    onTouchEnd={(e) => { e.preventDefault(); handleDpad('down', false); }}
+                                >
+                                    ▼
+                                </button>
                             </div>
-                            <button id="touch-jump" className="touch-btn" onTouchStart={() => handleKey(' ', true)} onTouchEnd={() => handleKey(' ', false)}>▲</button>
+                            <button 
+                                id="touch-jump" 
+                                className="touch-btn" 
+                                onTouchStart={(e) => { e.preventDefault(); handleKey(' ', true); }} 
+                                onTouchEnd={(e) => { e.preventDefault(); handleKey(' ', false); }}
+                            >
+                                ▲
+                            </button>
                         </div>
                     </div>
                 );
             case 'levelComplete':
                 return (
-                    <div className="text-center space-y-6">
-                        <span className="text-8xl">🏆</span>
-                        <h2 className="text-5xl font-pixel text-yellow-300">¡Nivel Completado!</h2>
-                        <button onClick={() => resetForNewLevel(level + 1)} className="px-10 py-5 bg-green-500 rounded-lg text-xl font-semibold">Siguiente Nivel</button>
+                    <div className="text-center space-y-6 animate-fade-in">
+                        <span className="text-6xl md:text-8xl block animate-bounce-once">🏆</span>
+                        <h2 className="text-3xl md:text-5xl font-pixel text-yellow-300 drop-shadow-lg">¡Nivel Completado!</h2>
+                        <p className="text-xl md:text-2xl text-white">Puntuación: {score}</p>
+                        <button 
+                            onClick={() => resetForNewLevel(level + 1)} 
+                            className="px-8 py-4 md:px-10 md:py-5 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg text-lg md:text-xl font-semibold shadow-lg hover:scale-105 transition-transform focus:outline-none focus:ring-4 focus:ring-green-300 active:scale-95"
+                        >
+                            Siguiente Nivel
+                        </button>
                     </div>
                 );
             case 'gameOver':
                 return (
-                    <div className="text-center space-y-6">
-                        <span className="text-8xl">💀</span>
-                        <h2 className="text-5xl font-pixel text-red-500">Fin del Juego</h2>
-                        <div className="flex gap-4 justify-center">
-                           <button onClick={() => { setLives(3); resetForNewLevel(level); }} className="px-8 py-4 bg-blue-500 rounded-lg font-semibold">Intentar de Nuevo</button>
-                           <button onClick={restartGame} className="px-8 py-4 bg-gray-600 rounded-lg font-semibold">Menú Principal</button>
+                    <div className="text-center space-y-6 animate-fade-in">
+                        <span className="text-6xl md:text-8xl block animate-shake">💀</span>
+                        <h2 className="text-3xl md:text-5xl font-pixel text-red-500 drop-shadow-lg">Fin del Juego</h2>
+                        <p className="text-xl md:text-2xl text-white">Puntuación Final: {score}</p>
+                        <div className="flex flex-col md:flex-row gap-4 justify-center">
+                            <button 
+                                onClick={() => { setLives(3); restartGame(); }} 
+                                className="px-6 py-3 md:px-8 md:py-4 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg font-semibold shadow-md hover:scale-105 transition-transform focus:outline-none focus:ring-4 focus:ring-blue-300 active:scale-95"
+                            >
+                                Intentar de Nuevo
+                            </button>
+                            <button 
+                                onClick={restartGame} 
+                                className="px-6 py-3 md:px-8 md:py-4 bg-gradient-to-r from-gray-600 to-gray-700 rounded-lg font-semibold shadow-md hover:scale-105 transition-transform focus:outline-none focus:ring-4 focus:ring-gray-400 active:scale-95"
+                            >
+                                Menú Principal
+                            </button>
                         </div>
                     </div>
                 );
             default:
-                return <div>Cargando...</div>;
+                return <div className="text-white text-xl">Cargando...</div>;
         }
     };
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 text-white p-4">
+        <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 text-white p-4 relative mobile-full-height">
             {renderScreen()}
         </div>
     );
 };
 
+// Render the React component
 ReactDOM.render(<PlatformerGame />, document.getElementById('root'));
 
 </script>
