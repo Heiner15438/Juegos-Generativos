@@ -3,148 +3,214 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>AI Platformer Game - Mobile Optimizado</title>
+    <title>Game Hub - Plataforma de Juegos Avanzado</title>
+    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts: Press Start 2P for pixelated font -->
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
     <!-- React y ReactDOM -->
     <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    
     <!-- Babel para transpilar JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
     <!-- Tone.js para efectos de sonido -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+
     <style>
-        /* Custom styles for the game */
-        body {
-            background-color: #0f172a; /* bg-slate-900 */
-            overflow: hidden;
-            font-family: 'Inter', sans-serif; /* Default font as per instructions */
-            touch-action: manipulation; /* Prevent default touch behaviors */
-            -webkit-tap-highlight-color: transparent; /* Remove tap highlight */
+        :root {
+            --primary: #6c5ce7;
+            --secondary: #a29bfe;
+            --accent: #fd79a8;
+            --dark: #0f172a;
+            --light: #f8f9fa;
         }
-        /* Apply Press Start 2P to elements with font-pixel class */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            color: var(--light);
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            min-height: 100vh;
+        }
         .font-pixel {
             font-family: 'Press Start 2P', cursive;
+            letter-spacing: -0.5px;
         }
-        /* Canvas styling for responsive behavior */
         canvas {
-            background-color: #1a1a2e; /* Matches levelData.theme.backgroundColor */
+            background-color: #1a1a2e;
             display: block;
-            width: 100%; /* Make canvas width responsive */
-            height: auto; /* Maintain aspect ratio */
-            max-width: 960px; /* Max width as per original design */
-            max-height: 640px; /* Max height as per original design */
-            aspect-ratio: 960 / 640; /* Lock aspect ratio */
+            width: 100%;
+            height: auto;
+            max-width: 960px;
+            /* max-height: 640px; */
+            aspect-ratio: 960 / 640;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
         }
-        /* Touch controls styling */
+        .world-card {
+            transition: all 0.3s ease;
+            transform: translateY(0);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        .world-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+        }
+        .character-card {
+            transition: all 0.3s ease;
+            filter: grayscale(100%);
+            opacity: 0.7;
+            cursor: pointer;
+        }
+        .character-card.unlocked {
+            filter: grayscale(0);
+            opacity: 1;
+        }
+        .character-card.selected {
+            box-shadow: 0 0 0 4px var(--primary);
+        }
+
         .touch-controls {
             position: fixed;
-            bottom: 10px;
+            bottom: 20px;
             left: 0;
             right: 0;
             display: flex;
             justify-content: space-between;
-            padding: 0 15px;
+            padding: 0 20px;
             z-index: 100;
-            pointer-events: none; /* Container itself doesn't block clicks */
+            pointer-events: none;
         }
         .touch-btn {
-            background-color: rgba(255, 255, 255, 0.3);
+            background: rgba(108, 92, 231, 0.7);
             border: 2px solid rgba(255, 255, 255, 0.6);
             border-radius: 50%;
-            width: 80px;
-            height: 80px;
+            width: 70px;
+            height: 70px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 32px;
+            font-size: 28px;
             color: white;
             user-select: none;
-            pointer-events: auto; /* Buttons are interactive */
-            transition: background-color 0.1s, transform 0.1s;
+            pointer-events: auto;
+            transition: all 0.1s;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
-            touch-action: manipulation;
+            backdrop-filter: blur(5px);
         }
         .touch-btn:active {
-            background-color: rgba(255, 255, 255, 0.6);
+            background: rgba(108, 92, 231, 1);
             transform: scale(0.95);
         }
-        .touch-dpad {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            grid-template-rows: repeat(3, 1fr);
-            gap: 5px;
-            pointer-events: auto;
-        }
-        .dpad-center {
-            grid-column: 2;
-            grid-row: 2;
-            background-color: rgba(255, 255, 255, 0.3);
+        .nav-button {
+            background: rgba(108, 92, 231, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.3);
             border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             width: 50px;
             height: 50px;
-        }
-        .dpad-btn {
-            background-color: rgba(255, 255, 255, 0.3);
-            border: 2px solid rgba(255, 255, 255, 0.6);
             display: flex;
             align-items: center;
             justify-content: center;
+            font-size: 24px;
             color: white;
-            font-size: 20px;
-            border-radius: 8px;
-            transition: all 0.1s;
+            cursor: pointer;
+            transition: all 0.2s;
         }
-        .dpad-btn:active {
-            background-color: rgba(255, 255, 255, 0.6);
+        .nav-button:hover {
+            background: rgba(108, 92, 231, 0.5);
+            transform: scale(1.05);
         }
-        .dpad-up { grid-column: 2; grid-row: 1; }
-        .dpad-left { grid-column: 1; grid-row: 2; }
-        .dpad-right { grid-column: 3; grid-row: 2; }
-        .dpad-down { grid-column: 2; grid-row: 3; }
-        
-        /* Mobile-specific adjustments */
+        .nav-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .vortex-container {
+            position: relative;
+            width: 150px;
+            height: 150px;
+            margin: 0 auto;
+        }
+        .vortex {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            border: 10px solid transparent;
+            border-top-color: #00cec9;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg) scale(1); }
+            50% { transform: translate(-50%, -50%) rotate(180deg) scale(1.5); }
+            100% { transform: translate(-50%,-50%) rotate(360deg) scale(1); }
+        }
+        .vortex::after {
+            content: '';
+            position: absolute;
+            top: -15px;
+            left: -15px;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 5px solid transparent;
+            border-bottom-color: #0984e3;
+            animation: spinReverse 0.8s linear infinite;
+        }
+        @keyframes spinReverse {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(-360deg); }
+        }
+        .level-complete {
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
         @media (max-width: 768px) {
             .touch-btn {
-                width: 70px;
-                height: 70px;
-                font-size: 28px;
+                width: 65px;
+                height: 65px;
+                font-size: 24px;
             }
-            .mobile-hidden {
-                display: none;
-            }
-            .mobile-full-height {
-                height: 100vh !important;
+            .world-card {
+                width: 100%;
             }
         }
         @media (max-width: 480px) {
             .touch-btn {
                 width: 60px;
                 height: 60px;
-                font-size: 24px;
+                font-size: 20px;
             }
-            .dpad-btn {
+            .nav-button {
                 width: 40px;
                 height: 40px;
                 font-size: 18px;
             }
-            .dpad-center {
-                width: 40px;
-                height: 40px;
-            }
         }
     </style>
 </head>
-
 <body>
     <div id="root"></div>
 
-<script type="text/babel">
+    <script type="text/babel">
 // --- LÓGICA DEL JUEGO Y SIMULACIÓN DE API ---
 
 /**
@@ -155,57 +221,85 @@
  * @returns {object} - An object containing level data (platforms, enemies, collectibles, obstacles, theme, etc.).
  */
 const createFallbackLevel = (theme, level) => {
-    const difficulty = Math.min(level, 10); // Cap difficulty at level 10
-    const platforms = [{ x: 50, y: 450, width: 150, height: 20, type: 'normal' }];
+    console.log(`Creating fallback level for theme: ${theme}, level: ${level}`);
+    const difficulty = Math.min(level, 15); // Cap difficulty at level 15 for variety
+    const platforms = [{ x: 50, y: 550, width: 200, height: 20, type: 'normal' }];
     const platformCount = 15 + difficulty * 3;
-    let lastX = 200;
+    let lastX = 250;
+    let lastY = 550;
 
     for (let i = 1; i < platformCount; i++) {
-        const gap = 90 + Math.random() * 70; // Horizontal gap between platforms
+        const gap = 80 + Math.random() * 80; // Horizontal gap between platforms
         const x = lastX + gap;
-        const yVariation = Math.sin(i * 0.3) * 120 + Math.cos(i * 0.7) * 80;
-        const y = 400 + yVariation;
+        const yVariation = (Math.random() - 0.5) * 200;
+        let y = lastY + yVariation;
+        
+        // Clamp Y to be within screen bounds
+        y = Math.max(150, Math.min(580, y));
+
         const types = ['normal', 'moving', 'bouncy', 'disappearing', 'ice'];
         let type = types[Math.floor(Math.random() * types.length)];
         
+        // Ensure not too many difficult platforms in a row
+        if (i > 2 && platforms[i-1].type !== 'normal' && platforms[i-2].type !== 'normal') {
+            type = 'normal';
+        }
+
         platforms.push({
             x: x,
-            y: Math.max(100, Math.min(550, y)), // Keep platforms within a reasonable vertical range
-            width: 70 + Math.random() * 50,
+            y: y,
+            width: 80 + Math.random() * 60,
             height: 20,
             type,
-            movementRange: type === 'moving' ? 60 + Math.random() * 50 : undefined,
-            movementSpeed: type === 'moving' ? 0.5 + difficulty * 0.1 : undefined,
+            movementRange: type === 'moving' ? 70 + Math.random() * 60 : undefined,
+            movementSpeed: type === 'moving' ? 0.6 + difficulty * 0.1 : undefined,
             movementDirection: type === 'moving' ? (Math.random() > 0.5 ? 'horizontal' : 'vertical') : undefined
         });
         lastX = x;
+        lastY = y;
     }
 
-    const enemies = Array.from({ length: 2 + difficulty }, (_, i) => ({
-        x: 300 + i * 250 + Math.random() * 100,
-        y: Math.random() > 0.5 ? 200 + Math.random() * 200 : 400, // Randomize enemy start Y
-        type: ['walker', 'flyer', 'jumper'][Math.floor(Math.random() * 3)],
-        patrolRange: 80 + Math.random() * 40,
-        speed: 0.5 + difficulty * 0.15
-    }));
+    const enemies = Array.from({ length: 3 + Math.floor(difficulty / 2) }, (_, i) => {
+        const platformIndex = Math.floor(Math.random() * (platforms.length - 2)) + 1; // Avoid first and last platform
+        const platform = platforms[platformIndex];
+        return {
+            id: `e${i}`,
+            x: platform.x + platform.width / 2,
+            y: platform.y - 30, // Spawn on a platform
+            type: ['walker', 'flyer', 'jumper'][Math.floor(Math.random() * 3)],
+            patrolRange: 60 + Math.random() * 40,
+            speed: 0.7 + difficulty * 0.15
+        };
+    });
 
-    const collectibles = Array.from({ length: 10 + difficulty * 2 }, (_, i) => ({
-        x: 150 + i * 150 + Math.random() * 60,
-        y: 200 + Math.random() * 250,
-        type: Math.random() > 0.85 ? 'powerup' : 'gem', // Mostly gems, some powerups
-        value: Math.random() > 0.9 ? 50 : 10 // Higher value for powerups
-    }));
+    const collectibles = Array.from({ length: 10 + difficulty * 2 }, (_, i) => {
+        const platformIndex = Math.floor(Math.random() * (platforms.length - 1)) + 1;
+        const platform = platforms[platformIndex];
+        return {
+            id: `c${i}`,
+            x: platform.x + Math.random() * platform.width,
+            y: platform.y - 40 - Math.random() * 80, // Float above platforms
+            type: Math.random() > 0.85 ? 'powerup' : 'gem',
+            value: Math.random() > 0.9 ? 50 : 10
+        };
+    });
 
-    const obstacles = Array.from({ length: 3 + Math.floor(difficulty / 2) }, (_, i) => ({
-        x: 400 + i * 300 + Math.random() * 100,
-        y: 435, // Spikes typically on the ground or platforms
-        type: 'spike',
-        width: 30 + Math.random() * 20,
-        height: 15
-    }));
+    const obstacles = Array.from({ length: 4 + Math.floor(difficulty / 2) }, (_, i) => {
+        const platformIndex = Math.floor(Math.random() * (platforms.length - 2)) + 1;
+        const platform = platforms[platformIndex];
+        return {
+            id: `o${i}`,
+            x: platform.x + Math.random() * (platform.width - 30),
+            y: platform.y - 15, // Place spikes on platforms
+            type: 'spike',
+            width: 30 + Math.random() * 20,
+            height: 15
+        };
+    });
 
-    // Add an exit platform at the end of the level
-    platforms.push({ x: lastX + 250, y: 450, width: 100, height: 20, type: 'exit' });
+    // Add an exit portal at the end of the level
+    const exitPlatform = { x: lastX + 250, y: lastY > 400 ? lastY - 100 : lastY, width: 100, height: 20, type: 'exit' };
+    platforms.push(exitPlatform);
 
     return {
         platforms, enemies, collectibles, obstacles,
@@ -224,895 +318,996 @@ const createFallbackLevel = (theme, level) => {
         },
         levelName: `Fallback: ${theme} - Nivel ${level}`,
         levelDescription: `Navega por el desafiante mundo de ${theme.toLowerCase()}`,
-        levelLength: lastX + 350 // Defines the total length of the level for camera bounds
+        levelLength: exitPlatform.x + 200 // Defines the total length of the level for camera bounds
     };
 };
 
 // Simulated AI API for level generation.
-// In a real scenario, this would make a fetch call to a backend AI service.
 window.aiAPI = {
     complete: async (prompt) => {
         console.log("--- LLAMADA A LA API SIMULADA ---", prompt);
-        // Simulate network delay
         await new Promise(resolve => setTimeout(resolve, 1500));
         
-        // Extract theme and level from the prompt for the fallback level
         const themeMatch = prompt.match(/theme "([^"]+)"/);
         const theme = themeMatch ? themeMatch[1] : 'Mundo Misterioso';
         const levelMatch = prompt.match(/level (\d+)/);
         const level = levelMatch ? parseInt(levelMatch[1], 10) : 1;
         
-        // Return a JSON string of the fallback level data
+        // In a real scenario, you would parse the AI's JSON response.
+        // Here, we always use our robust fallback generator.
         const fallbackData = createFallbackLevel(theme, level);
         return JSON.stringify(fallbackData);
     }
 };
 
-// --- COMPONENTE PRINCIPAL DE REACT ---
+// --- CONSTANTES Y CONFIGURACIÓN DEL JUEGO ---
+const GRAVITY = 0.6;
+const JUMP_FORCE = -14;
+const MOVE_SPEED = 5;
+const PLAYER_WIDTH = 28;
+const PLAYER_HEIGHT = 36;
+const ENEMY_BOUNCE_FORCE = -8;
+
+const worlds = [
+    { name: 'Cuevas de Cristal', icon: '💎', color: '#e94560', difficulty: 1},
+    { name: 'Biblioteca Flotante', icon: '📚', color: '#9b59b6', difficulty: 1.5},
+    { name: 'Dimensión Espejo', icon: '🌀', color: '#3498db', difficulty: 2 },
+    { name: 'Bosque Encantado', icon: '🌳', color: '#2ecc71', difficulty: 2.5},
+    { name: 'Desierto Ardiente', icon: '🏜️', color: '#e67e22', difficulty: 3},
+    { name: 'Océano Profundo', icon: '🌊', color: '#1abc9c', difficulty: 3.5},
+    { name: 'Montaña Gélida', icon: '🏔️', color: '#3498db', difficulty: 4 },
+    { name: 'Ciudad Futurista', icon: '🏙️', color: '#9b59b6', difficulty: 4.5},
+    { name: 'Jungla Oculta', icon: '🌿', color: '#27ae60', difficulty: 5 },
+    { name: 'Volcán en Erupción', icon: '🌋', color: '#e74c3c', difficulty: 5.5},
+    { name: 'Nebulosa Estelar', icon: '✨', color: '#8e44ad', difficulty: 6},
+    { name: 'Ruinas Antiguas', icon: '🏛️', color: '#f39c12', difficulty: 6.5 },
+    { name: 'Castillo Embrujado', icon: '👻', color: '#7f8c8d', difficulty: 7},
+    { name: 'Isla Tropical', icon: '🏝️', color: '#16a085', difficulty: 7.5 },
+    { name: 'Mina Abandonada', icon: '⛏️', color: '#d35400', difficulty: 8},
+    { name: 'Templo Sagrado', icon: '⛩️', color: '#f1c40f', difficulty: 8.5 },
+    { name: 'Laboratorio Secreto', icon: '🧪', color: '#2c3e50', difficulty: 9},
+    { name: 'Granja Feliz', icon: '🧑‍🌾', color: '#27ae60', difficulty: 9.5 },
+    { name: 'Estación Espacial', icon: '🚀', color: '#95a5a6', difficulty: 10 },
+    { name: 'Cielo Nublado', icon: '☁️', color: '#ecf0f1', difficulty: 10.5},
+    { name: 'Inframundo Oscuro', icon: '💀', color: '#c0392b', difficulty: 11 }
+];
+
+const characters = [
+    { id: 1, name: 'Aventurero', color: '#a29bfe', unlocked: true, ability: 'Ninguna' },
+    { id: 2, name: 'Guerrero', color: '#ff7675', unlocked: false, ability: 'Invencibilidad corta al recibir daño' },
+    { id: 3, name: 'Mago', color: '#74b9ff', unlocked: false, ability: 'Doble Salto' },
+    { id: 4, name: 'Explorador', color: '#55efc4', unlocked: false, ability: 'Mayor velocidad de movimiento' },
+    { id: 5, name: 'Ninja', color: '#ffeaa7', unlocked: false, ability: 'Salto en paredes (Wall Jump)' }
+];
+
+const rewards = [
+    { level: 2, prize: 'Personaje: Guerrero' },
+    { level: 5, prize: 'Personaje: Mago' },
+    { level: 10, prize: 'Personaje: Explorador' },
+    { level: 15, prize: 'Personaje: Ninja' },
+    { level: 21, prize: 'Trofeo de Campeón 🏆' }
+];
+
+// --- COMPONENTES DE REACT ---
 const { useState, useEffect, useRef, useCallback } = React;
 
-// --- Constantes del Juego ---
-const GRAVITY = 0.6; // Gravity strength
-const JUMP_FORCE = -14; // Player jump vertical velocity
-const MOVE_SPEED = 5; // Player horizontal movement speed
-const PLAYER_WIDTH = 28; // Player character width
-const PLAYER_HEIGHT = 36; // Player character height
-const ENEMY_BOUNCE_FORCE = -8; // Force applied to player when stomping an enemy
-
-const PlatformerGame = () => {
-    const canvasRef = useRef(null); // Reference to the HTML canvas element
-    const animationRef = useRef(null); // Reference to the requestAnimationFrame ID for cancellation
-    const [gameState, setGameState] = useState('menu'); // Current state of the game
-    const [theme, setTheme] = useState(''); // Selected theme for the level
-    const [customTheme, setCustomTheme] = useState(''); // Custom theme input
-    const [level, setLevel] = useState(1); // Current level number
-    const [score, setScore] = useState(0); // Player's score
-    const [lives, setLives] = useState(3); // Player's remaining lives
-    const [isGenerating, setIsGenerating] = useState(false); // Flag for level generation status
-    const [levelData, setLevelData] = useState(null); // Stores the generated level data
-    const [isMobile, setIsMobile] = useState(false); // Flag for mobile detection
-
-    // Detect if device is mobile
-    useEffect(() => {
-        const checkIfMobile = () => {
-            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        };
-        setIsMobile(checkIfMobile());
-    }, []);
-
-    // --- Game state references to avoid re-renders in the game loop ---
-    // This ref holds mutable game state that is updated frequently without triggering React re-renders.
+// --- COMPONENTE DEL JUEGO DE PLATAFORMAS (LÓGICA PRINCIPAL) ---
+const PlatformerGame = ({ levelData, onLevelComplete, onGameOver, character, onScoreUpdate }) => {
+    const canvasRef = useRef(null);
+    const animationRef = useRef(null);
     const gameRefs = useRef({
-        player: { x: 100, y: 300, vx: 0, vy: 0, width: PLAYER_WIDTH, height: PLAYER_HEIGHT, grounded: false, invincible: 0 },
-        camera: { x: 0, y: 0 }, // Camera position
-        keys: {}, // Object to track pressed keys
-        platformStates: new Map(), // Stores dynamic states of platforms (e.g., disappearing, moving)
-        enemyStates: new Map(), // Stores dynamic states of enemies (e.g., active, position)
-        collectibleStates: new Map(), // Stores active status of collectibles
-        particles: [], // Array to manage particle effects
-        time: 0 // Game time counter for animations
+        player: { 
+            x: 100, y: 300, vx: 0, vy: 0, 
+            width: PLAYER_WIDTH, height: PLAYER_HEIGHT, 
+            grounded: false, invincible: 0,
+            canDoubleJump: true,
+            onWall: 0, // -1 for left, 1 for right, 0 for none
+        },
+        camera: { x: 0, y: 0 },
+        keys: {},
+        platformStates: new Map(),
+        enemyStates: new Map(),
+        collectibleStates: new Map(),
+        particles: [],
+        time: 0,
+        levelComplete: false
     });
 
-    // --- Sound Effects with Tone.js ---
     const sounds = useRef(null);
+
+    // --- INICIALIZACIÓN Y BUCLE DEL JUEGO ---
     useEffect(() => {
-        // Initialize Tone.js synths for various sound effects
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+
+        // Inicializar sonidos
         sounds.current = {
             jump: new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.1, sustain: 0.05, release: 0.1 } }).toDestination(),
             collectGem: new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0, release: 0.1 } }).toDestination(),
             hit: new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.01, decay: 0.15, sustain: 0, release: 0.1 } }).toDestination(),
             enemyStomp: new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 5, envelope: { attack: 0.01, decay: 0.2, sustain: 0, release: 0.1 } }).toDestination(),
-            levelComplete: new Tone.PolySynth(Tone.Synth, { oscillator: { type: "fatsawtooth" }, envelope: { attack: 0.1, decay: 0.2, sustain: 0.5, release: 1 } }).toDestination()
+            levelComplete: new Tone.PolySynth(Tone.Synth, { oscillator: { type: "fatsawtooth" }, envelope: { attack: 0.1, decay: 0.2, sustain: 0.5, release: 1 } }).toDestination(),
+            powerup: new Tone.Synth({ oscillator: { type: 'sawtooth' }, envelope: { attack: 0.05, decay: 0.3, sustain: 0.1, release: 0.2 } }).toDestination(),
+            wallJump: new Tone.Synth({ oscillator: { type: 'square' }, envelope: { attack: 0.01, decay: 0.08, sustain: 0.05, release: 0.1 } }).toDestination(),
         };
+
+        // Resetear estado del juego al cargar un nuevo nivel
+        resetGameState();
+
+        // Bucle principal del juego
+        const gameLoop = () => {
+            update();
+            draw(ctx);
+            animationRef.current = requestAnimationFrame(gameLoop);
+        };
+
+        animationRef.current = requestAnimationFrame(gameLoop);
+
+        // Limpieza al desmontar el componente
+        return () => {
+            cancelAnimationFrame(animationRef.current);
+        };
+    }, [levelData, character]); // Reiniciar el juego si el nivel o el personaje cambian
+
+    // --- MANEJO DE ENTRADAS (TECLADO Y TÁCTIL) ---
+    const handleKeyDown = useCallback((e) => {
+        gameRefs.current.keys[e.code] = true;
+        // Prevenir el comportamiento por defecto de la barra espaciadora y las flechas
+        if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+            e.preventDefault();
+        }
     }, []);
 
-    /**
-     * Plays a specified sound effect using Tone.js.
-     * @param {string} sound - The key of the sound in the `sounds.current` object.
-     * @param {string|string[]} note - The musical note(s) to play.
-     * @param {string} duration - The duration of the note.
-     */
+    const handleKeyUp = useCallback((e) => {
+        gameRefs.current.keys[e.code] = false;
+    }, []);
+    
+    const handleTouch = (key, isPressed) => {
+        gameRefs.current.keys[key] = isPressed;
+    };
+
+    useEffect(() => {
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, [handleKeyDown, handleKeyUp]);
+    
+    // --- FUNCIONES DE UTILIDAD ---
     const playSound = (sound, note, duration = '8n') => {
-        if (sounds.current && sounds.current[sound]) {
-            sounds.current[sound].triggerAttackRelease(note, duration);
+        try {
+            if (Tone.context.state !== 'running') {
+                Tone.context.resume();
+            }
+            if (sounds.current && sounds.current[sound]) {
+                sounds.current[sound].triggerAttackRelease(note, duration);
+            }
+        } catch (e) {
+            console.error("Error al reproducir sonido:", e);
         }
     };
 
-    // --- Level Generation ---
-    /**
-     * Asynchronously generates a new level using the simulated AI API.
-     * Updates game state based on the generated level data or falls back to a default.
-     */
-    const generateLevel = useCallback(async () => {
-        setIsGenerating(true);
-        setGameState('generating');
-        const selectedTheme = theme === 'custom' ? customTheme : theme;
-        try {
-            const prompt = `Generate a platformer level with the theme "${selectedTheme}" for level ${level}.`;
-            const response = await window.aiAPI.complete(prompt);
-            const data = JSON.parse(response);
-            
-            // Initialize dynamic states for platforms (disappearing, moving)
-            gameRefs.current.platformStates.clear();
-            data.platforms.forEach((p, i) => {
-                if(p.type === 'disappearing') gameRefs.current.platformStates.set(i, { visible: true, timer: 0 });
-                else if(p.type === 'moving') gameRefs.current.platformStates.set(i, { offset: 0, dir: 1 });
+    const createParticles = (x, y, count, color, speed, size) => {
+        for (let i = 0; i < count; i++) {
+            gameRefs.current.particles.push({
+                x, y,
+                vx: (Math.random() - 0.5) * speed,
+                vy: (Math.random() - 0.5) * speed,
+                life: 20 + Math.random() * 20,
+                color,
+                size: Math.random() * size + 1
             });
-
-            // Initialize dynamic states for enemies
-            gameRefs.current.enemyStates.clear();
-            data.enemies.forEach((e, i) => {
-                gameRefs.current.enemyStates.set(i, { ...e, active: true, initialX: e.x, initialY: e.y, dir: 1, jumpTimer: Math.random() * 120 });
-            });
-
-            // Initialize dynamic states for collectibles
-            gameRefs.current.collectibleStates.clear();
-            data.collectibles.forEach((c, i) => {
-                gameRefs.current.collectibleStates.set(i, { active: true });
-            });
-            
-            setLevelData(data);
-            setGameState('playing');
-        } catch (error) {
-            console.error('Error generando el nivel, usando fallback:', error);
-            // Fallback to theme selection if generation fails
-            setGameState('themeSelect');
         }
-        setIsGenerating(false);
-    }, [theme, customTheme, level]);
-    
-    // --- Input Handling (Keyboard and Touch) ---
-    /**
-     * Handles key press and release events, updating the `keys` state in `gameRefs`.
-     * @param {string} key - The key pressed or released.
-     * @param {boolean} isDown - True if the key is pressed, false if released.
-     */
-    const handleKey = useCallback((key, isDown) => {
-        gameRefs.current.keys[key.toLowerCase()] = isDown;
-    }, []);
+    };
 
-    /**
-     * Handles touch events for the D-pad
-     * @param {string} direction - The direction of the button press
-     * @param {boolean} isDown - True for press, false for release
-     */
-    const handleDpad = useCallback((direction, isDown) => {
-        switch(direction) {
-            case 'left':
-                handleKey('a', isDown);
-                break;
-            case 'right':
-                handleKey('d', isDown);
-                break;
-            case 'up':
-                handleKey('w', isDown);
-                break;
-            case 'down':
-                // Optional: add ducking if needed
-                break;
-        }
-    }, [handleKey]);
-
-    useEffect(() => {
-        // Event listeners for keyboard input
-        const downListener = (e) => {
-            // Prevent default behavior for arrow keys and space to avoid scrolling
-            if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' ', 'a', 'w', 'd'].includes(e.key.toLowerCase())) {
-                e.preventDefault();
-            }
-            handleKey(e.key, true);
+    const resetGameState = () => {
+        const { current: refs } = gameRefs;
+        refs.player = { 
+            x: 100, y: 300, vx: 0, vy: 0, 
+            width: PLAYER_WIDTH, height: PLAYER_HEIGHT, 
+            grounded: false, invincible: 0,
+            canDoubleJump: true,
+            onWall: 0
         };
-        const upListener = (e) => handleKey(e.key, false);
-        window.addEventListener('keydown', downListener);
-        window.addEventListener('keyup', upListener);
-        
-        // Prevent context menu on long press on mobile
-        const contextMenuListener = (e) => e.preventDefault();
-        if (isMobile) {
-            window.addEventListener('contextmenu', contextMenuListener);
-        }
-        
-        return () => {
-            // Cleanup event listeners on component unmount
-            window.removeEventListener('keydown', downListener);
-            window.removeEventListener('keyup', upListener);
-            window.removeEventListener('contextmenu', contextMenuListener);
-        };
-    }, [handleKey, isMobile]);
+        refs.camera = { x: 0, y: 0 };
+        refs.keys = {};
+        refs.platformStates = new Map();
+        refs.enemyStates = new Map(levelData.enemies.map(e => [e.id, { ...e, active: true, originalX: e.x }]));
+        refs.collectibleStates = new Map(levelData.collectibles.map(c => [c.id, { ...c, active: true }]));
+        refs.particles = [];
+        refs.time = 0;
+        refs.levelComplete = false;
+        onScoreUpdate(0, true); // Reset score
+    };
 
-    // --- Main Game Loop ---
-    /**
-     * The core game loop function. Updates game state, handles rendering, and requests the next frame.
-     */
-    const gameLoop = useCallback(() => {
-        if (gameState !== 'playing' || !levelData) {
-            animationRef.current = null; // Ensure loop stops if game state changes
-            return;
-        }
-        const canvas = canvasRef.current;
-        if (!canvas) {
-            animationRef.current = null;
-            return;
-        }
-        const ctx = canvas.getContext('2d');
-        const game = gameRefs.current;
-        
-        // 1. Update game state (logic)
-        updatePlayer(game, levelData, playSound);
-        updateEnemies(game, levelData);
-        updatePlatforms(game, levelData);
-        updateParticles(game);
-        handleCollisions(game, levelData, setLives, setScore, setGameState, playSound);
-        
-        // 2. Update camera position to follow the player
-        // Smooth camera movement, centering the player horizontally
-        const cameraTarget = isMobile ? canvas.width / 2.5 : canvas.width / 3.5;
-        game.camera.x += (game.player.x - game.camera.x - cameraTarget) * 0.08;
-        // Clamp camera to level bounds
-        game.camera.x = Math.max(0, Math.min(game.camera.x, levelData.levelLength - canvas.width));
-        
-        // 3. Draw all game elements
-        drawGame(ctx, game, levelData, canvas, lives, score);
+    // --- LÓGICA DE ACTUALIZACIÓN ---
+    const update = () => {
+        const { current: refs } = gameRefs;
+        if (refs.levelComplete) return;
 
-        game.time++; // Increment game time
-        animationRef.current = requestAnimationFrame(gameLoop); // Request next animation frame
-    }, [gameState, levelData, lives, score, isMobile]); // Dependencies for useCallback
+        refs.time++;
+        updatePlayer();
+        updateEnemies();
+        updatePlatforms();
+        updateParticles();
+        handleCollisions();
+        updateCamera();
 
-    useEffect(() => {
-        // Start or stop the game loop based on gameState
-        if (gameState === 'playing') {
-            animationRef.current = requestAnimationFrame(gameLoop);
+        if (refs.player.y > 800 && refs.player.invincible === 0) { // Caída fuera del mapa
+            handlePlayerHit();
+        }
+    };
+
+    const updatePlayer = () => {
+        const { player, keys } = gameRefs.current;
+        const baseMoveSpeed = character.name === 'Explorador' ? MOVE_SPEED * 1.25 : MOVE_SPEED;
+
+        // Movimiento horizontal
+        if (keys['ArrowLeft'] || keys['KeyA']) {
+            player.vx = -baseMoveSpeed;
+        } else if (keys['ArrowRight'] || keys['KeyD']) {
+            player.vx = baseMoveSpeed;
         } else {
-            if (animationRef.current) cancelAnimationFrame(animationRef.current);
-            animationRef.current = null;
+            player.vx = 0;
         }
-        return () => {
-            // Cleanup on component unmount or state change
-            if (animationRef.current) cancelAnimationFrame(animationRef.current);
-        };
-    }, [gameState, gameLoop]);
 
-    // --- Separate Game Logic Functions ---
+        // Aplicar fricción de las plataformas de hielo
+        const standingOn = getStandingOnPlatform();
+        if (standingOn && standingOn.type === 'ice') {
+            if (Math.abs(player.vx) < 0.1) {
+                player.vx += (keys['ArrowLeft'] || keys['KeyA'] ? -0.2 : (keys['ArrowRight'] || keys['KeyD'] ? 0.2 : 0));
+            }
+        } else {
+            if (player.vx !== 0 && !keys['ArrowLeft'] && !keys['KeyA'] && !keys['ArrowRight'] && !keys['KeyD']) {
+                player.vx *= 0.9; // Fricción normal
+            }
+        }
 
-    /**
-     * Updates the player's position, velocity, and state based on input and gravity.
-     * @param {object} game - The mutable game state object from `gameRefs.current`.
-     * @param {object} levelData - The current level's data.
-     * @param {function} playSound - Function to play sound effects.
-     */
-    const updatePlayer = (game, levelData, playSound) => {
-        const { player, keys } = game;
-        // Horizontal movement based on keys
-        if (keys['arrowleft'] || keys['a']) player.vx = -MOVE_SPEED;
-        else if (keys['arrowright'] || keys['d']) player.vx = MOVE_SPEED;
-        else player.vx *= (player.onIce ? 0.98 : 0.8); // Apply friction, less on ice
-
-        // Jump logic
-        if ((keys['arrowup'] || keys['w'] || keys[' ']) && player.grounded) {
+        // Salto
+        if ((keys['ArrowUp'] || keys['KeyW'] || keys['Space']) && (player.grounded || player.canDoubleJump)) {
+            const isFirstJump = player.grounded;
+            if (isFirstJump) {
+                player.vy = JUMP_FORCE;
+                player.grounded = false;
+                playSound('jump', 'C4');
+                createParticles(player.x + player.width / 2, player.y + player.height, 10, '#ffffff', 3, 2);
+                if (character.name === 'Mago') {
+                    player.canDoubleJump = true;
+                }
+            } else if (player.canDoubleJump && character.name === 'Mago') {
+                player.vy = JUMP_FORCE * 0.9; // El doble salto es un poco más débil
+                player.canDoubleJump = false;
+                playSound('jump', 'G4');
+                createParticles(player.x + player.width / 2, player.y + player.height / 2, 15, '#74b9ff', 4, 3);
+            }
+            keys['ArrowUp'] = keys['KeyW'] = keys['Space'] = false; // Prevenir saltos repetidos
+        }
+        
+        // Wall Jump (Ninja)
+        if (character.name === 'Ninja' && player.onWall !== 0 && (keys['ArrowUp'] || keys['KeyW'] || keys['Space'])) {
             player.vy = JUMP_FORCE;
-            player.grounded = false;
-            playSound('jump', 'C5');
-            createParticles(game.particles, player.x + player.width / 2, player.y + player.height, isMobile ? 3 : 5, '#ffffff');
+            player.vx = -player.onWall * baseMoveSpeed * 1.2; // Salto en dirección opuesta al muro
+            player.onWall = 0;
+            playSound('wallJump', 'A4');
+            createParticles(player.x + (player.onWall > 0 ? 0 : player.width), player.y + player.height / 2, 15, '#ffeaa7', 5, 3);
+            keys['ArrowUp'] = keys['KeyW'] = keys['Space'] = false;
         }
 
-        // Apply gravity and update position
+        // Aplicar gravedad
         player.vy += GRAVITY;
+        
+        // Deslizamiento en pared (Ninja)
+        if (character.name === 'Ninja' && player.onWall !== 0 && player.vy > 0) {
+            player.vy *= 0.5; // Deslizar más lento
+        }
+
+        // Actualizar posición
         player.x += player.vx;
         player.y += player.vy;
-        player.grounded = false; // Reset grounded status each frame
-        player.onIce = false; // Reset ice status each frame
-        if (player.invincible > 0) player.invincible--; // Decrement invincibility timer
+
+        // Resetear grounded y onWall (se recalculará en colisiones)
+        player.grounded = false;
+        player.onWall = 0;
+
+        // Actualizar temporizador de invencibilidad
+        if (player.invincible > 0) {
+            player.invincible--;
+        }
     };
 
-    /**
-     * Updates the state and position of all active enemies.
-     * @param {object} game - The mutable game state object.
-     * @param {object} levelData - The current level's data.
-     */
-    const updateEnemies = (game, levelData) => {
-        game.enemyStates.forEach((enemy) => {
-            if (!enemy.active) return; // Skip inactive enemies
-            switch(enemy.type) {
+    const updateEnemies = () => {
+        const { enemyStates, player, time } = gameRefs.current;
+        enemyStates.forEach(enemy => {
+            if (!enemy.active) return;
+
+            switch (enemy.type) {
                 case 'walker':
-                    enemy.x += enemy.speed * enemy.dir;
-                    // Reverse direction if out of patrol range
-                    if (Math.abs(enemy.x - enemy.initialX) > enemy.patrolRange) {
-                        enemy.dir *= -1;
-                    }
+                    enemy.x += Math.sin(time * 0.05 + enemy.id.charCodeAt(1)) * enemy.speed;
                     break;
                 case 'flyer':
-                    enemy.x += enemy.speed * enemy.dir;
-                    // Oscillate vertically
-                    enemy.y = enemy.initialY + Math.sin(game.time * 0.05) * 30;
-                    // Reverse horizontal direction if out of patrol range
-                    if (Math.abs(enemy.x - enemy.initialX) > enemy.patrolRange) {
-                        enemy.dir *= -1;
-                    }
+                    enemy.x += Math.sin(time * 0.05 + enemy.id.charCodeAt(1)) * enemy.speed;
+                    enemy.y += Math.cos(time * 0.05 + enemy.id.charCodeAt(1)) * (enemy.speed / 2);
                     break;
                 case 'jumper':
-                    enemy.jumpTimer--;
-                    if (enemy.jumpTimer <= 0) {
-                        enemy.vy = -8; // Jump force for jumper enemies
-                        enemy.jumpTimer = 120 + Math.random() * 60; // Reset jump timer
+                    const onPlatform = isEnemyOnPlatform(enemy);
+                    if (onPlatform) {
+                        if (Math.random() < 0.01) { // Salto ocasional
+                           enemy.vy = -8;
+                        }
                     }
-                    enemy.vy = (enemy.vy || 0) + GRAVITY * 0.5; // Apply reduced gravity to jumpers
+                    enemy.vy = (enemy.vy || 0) + GRAVITY * 0.5;
                     enemy.y += enemy.vy;
-                    // Simple ground collision for jumpers to keep them on screen
-                    if (enemy.y > 450) {
-                        enemy.y = 450;
+                    // Colisión simple con el suelo para que no caigan
+                    if (onPlatform) {
+                        enemy.y = onPlatform.y - 30;
                         enemy.vy = 0;
                     }
                     break;
             }
         });
     };
-
-    /**
-     * Updates the state of dynamic platforms (moving, disappearing).
-     * @param {object} game - The mutable game state object.
-     * @param {object} levelData - The current level's data.
-     */
-    const updatePlatforms = (game, levelData) => {
-        const { platformStates } = game;
-        levelData.platforms.forEach((platform, index) => {
-            const state = platformStates.get(index);
-            if (!state) return; // Skip if no dynamic state is needed
-
-            if (platform.type === 'moving') {
-                state.offset += (platform.movementSpeed || 1) * state.dir;
-                // Reverse direction if platform reaches its movement limit
-                if (Math.abs(state.offset) >= (platform.movementRange || 50)) state.dir *= -1;
+    
+    const isEnemyOnPlatform = (enemy) => {
+        for (const platform of levelData.platforms) {
+            if (enemy.x > platform.x && enemy.x < platform.x + platform.width &&
+                enemy.y + 30 >= platform.y && enemy.y + 30 <= platform.y + 20) {
+                return platform;
             }
-            if (platform.type === 'disappearing') {
-                if (state.timer > 0) {
-                    state.timer--;
-                    if (state.timer === 0) {
-                        state.visible = !state.visible; // Toggle visibility
-                        state.timer = state.visible ? 180 : 90; // Set timer for visible/invisible phase
+        }
+        return null;
+    };
+
+    const updatePlatforms = () => {
+        const { platformStates, time } = gameRefs.current;
+        levelData.platforms.forEach(p => {
+            if (p.type === 'moving') {
+                let state = platformStates.get(p.x + ',' + p.y);
+                if (!state) {
+                    state = { originalX: p.x, originalY: p.y };
+                    platformStates.set(p.x + ',' + p.y, state);
+                }
+                if (p.movementDirection === 'horizontal') {
+                    p.x = state.originalX + Math.sin(time * 0.02 * p.movementSpeed) * p.movementRange;
+                } else {
+                    p.y = state.originalY + Math.cos(time * 0.02 * p.movementSpeed) * p.movementRange;
+                }
+            }
+        });
+    };
+
+    const updateParticles = () => {
+        gameRefs.current.particles = gameRefs.current.particles.filter(p => {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life--;
+            return p.life > 0;
+        });
+    };
+
+    const updateCamera = () => {
+        const { camera, player } = gameRefs.current;
+        const targetX = player.x - canvasRef.current.width / 2;
+        const targetY = player.y - canvasRef.current.height / 2;
+        
+        // Suavizar movimiento de la cámara
+        camera.x += (targetX - camera.x) * 0.1;
+        camera.y += (targetY - camera.y) * 0.1;
+
+        // Limitar la cámara a los bordes del nivel
+        camera.x = Math.max(0, Math.min(camera.x, levelData.levelLength - canvasRef.current.width));
+        camera.y = Math.max(-100, Math.min(camera.y, 400)); // Límites verticales
+    };
+
+    // --- LÓGICA DE COLISIONES ---
+    const handleCollisions = () => {
+        const { player, enemyStates, collectibleStates } = gameRefs.current;
+        player.onWall = 0;
+
+        // Colisiones con plataformas
+        levelData.platforms.forEach(p => {
+            // Detección de colisión vertical (aterrizaje)
+            if (player.x + player.width > p.x && player.x < p.x + p.width &&
+                player.y + player.height > p.y && player.y + player.height < p.y + 20 &&
+                player.vy >= 0) {
+                
+                const platformState = gameRefs.current.platformStates.get(p.x + ',' + p.y) || {};
+
+                if (p.type === 'disappearing' && platformState.alpha !== 0) {
+                    if (!platformState.touched) {
+                       platformState.touched = gameRefs.current.time;
+                       platformState.alpha = 1;
+                    }
+                }
+
+                if (p.type !== 'disappearing' || platformState.alpha > 0.5) {
+                    player.y = p.y - player.height;
+                    player.vy = 0;
+                    player.grounded = true;
+                    player.canDoubleJump = character.name === 'Mago';
+
+                    if (p.type === 'bouncy') {
+                        player.vy = JUMP_FORCE * 1.5;
+                        playSound('jump', 'C5');
+                        createParticles(player.x + player.width / 2, p.y, 20, levelData.theme.bouncyColor, 5, 4);
+                    }
+                    if (p.type === 'exit') {
+                        if (!gameRefs.current.levelComplete) {
+                            gameRefs.current.levelComplete = true;
+                            playSound('levelComplete', ['C4', 'E4', 'G4', 'C5'], '1n');
+                            setTimeout(() => onLevelComplete(), 1500);
+                        }
                     }
                 }
             }
-        });
-    };
-
-    /**
-     * Handles all collision detection and resolution for the player.
-     * @param {object} game - The mutable game state object.
-     * @param {object} levelData - The current level's data.
-     * @param {function} setLives - React setter for lives state.
-     * @param {function} setScore - React setter for score state.
-     * @param {function} setGameState - React setter for game state.
-     * @param {function} playSound - Function to play sound effects.
-     */
-    const handleCollisions = (game, levelData, setLives, setScore, setGameState, playSound) => {
-        const { player, platformStates, enemyStates, collectibleStates, particles } = game;
-
-        // Collision with platforms
-        levelData.platforms.forEach((platform, index) => {
-            const state = platformStates.get(index);
-            // Skip disappearing platforms if they are currently invisible
-            if (platform.type === 'disappearing' && !state.visible) return;
-
-            // Calculate current platform position for moving platforms
-            let pX = platform.x;
-            let pY = platform.y;
-            if (platform.type === 'moving' && state) {
-                if (platform.movementDirection === 'vertical') pY += state.offset;
-                else pX += state.offset;
+            // Detección de colisión horizontal (paredes)
+            else if (player.y + player.height > p.y && player.y < p.y + p.height) {
+                // Colisión con el lado izquierdo de la plataforma
+                if (player.x + player.width > p.x && player.x + player.width < p.x + 20 && player.vx > 0) {
+                    player.x = p.x - player.width;
+                    player.vx = 0;
+                    if (character.name === 'Ninja') player.onWall = 1;
+                }
+                // Colisión con el lado derecho de la plataforma
+                else if (player.x < p.x + p.width && player.x > p.x + p.width - 20 && player.vx < 0) {
+                    player.x = p.x + p.width;
+                    player.vx = 0;
+                    if (character.name === 'Ninja') player.onWall = -1;
+                }
             }
-
-            // Check for collision from above (player landing on platform)
-            if (player.vy >= 0 && // Player is falling or still
-                player.x + player.width > pX && player.x < pX + platform.width && // Horizontal overlap
-                player.y + player.height > pY && player.y + player.height < pY + 20) { // Player's feet are just above or on the platform
-                
-                player.y = pY - player.height; // Snap player to top of platform
-                player.vy = 0; // Stop vertical movement
-                player.grounded = true; // Mark player as grounded
-                
-                // Handle specific platform types
-                if (platform.type === 'bouncy') {
-                    player.vy = JUMP_FORCE * 1.6; // Higher jump force
-                    playSound('jump', 'G5');
-                    createParticles(particles, player.x + player.width / 2, player.y + player.height, isMobile ? 7 : 10, levelData.theme.bouncyColor);
-                }
-                if (platform.type === 'ice') player.onIce = true; // Player is on ice
-                if (platform.type === 'disappearing' && state.timer === 0) {
-                    state.timer = 30; // Start timer for disappearing platform
-                }
-                if (platform.type === 'exit') {
-                    playSound('levelComplete', ["C4", "E4", "G4", "C5"], "0.5s");
-                    setGameState('levelComplete'); // Advance to level complete screen
+        });
+        
+        // Colisiones con enemigos
+        enemyStates.forEach(enemy => {
+            if (!enemy.active) return;
+            if (checkCollision(player, { ...enemy, width: 30, height: 30 })) {
+                // Pisar al enemigo
+                if (player.vy > 0 && player.y + player.height < enemy.y + 20) {
+                    enemy.active = false;
+                    player.vy = ENEMY_BOUNCE_FORCE;
+                    playSound('enemyStomp', 'C3');
+                    onScoreUpdate(100);
+                    createParticles(enemy.x, enemy.y, 20, levelData.theme.enemyColor, 4, 3);
+                } else if (player.invincible === 0) {
+                    handlePlayerHit();
                 }
             }
         });
 
-        // Collision with enemies
-        enemyStates.forEach((enemy, index) => {
-            if (!enemy.active) return; // Skip inactive enemies
-            // Simple AABB collision detection
-            if (player.x < enemy.x + 20 && player.x + player.width > enemy.x &&
-                player.y < enemy.y + 20 && player.y + player.height > enemy.y) {
-                
-                // Check if player is stomping on the enemy (falling and hitting from above)
-                if (player.vy > 0 && (player.y + player.height) < (enemy.y + 15)) { // Stomp
-                    enemy.active = false; // Deactivate enemy
-                    player.vy = ENEMY_BOUNCE_FORCE; // Player bounces up
-                    setScore(prev => prev + 50); // Increase score
-                    playSound('enemyStomp', 'C4');
-                    createParticles(particles, enemy.x + 10, enemy.y + 10, isMobile ? 10 : 15, levelData.theme.enemyColor);
-                } else if (player.invincible === 0) { // Player takes damage if not stomping and not invincible
-                    player.invincible = 60; // 1 second (60 frames) of invincibility
-                    setLives(prev => prev - 1); // Lose a life
-                    playSound('hit', 'C2');
-                    createParticles(particles, player.x + player.width / 2, player.y + player.height / 2, isMobile ? 7 : 10, levelData.theme.playerColor);
-                }
-            }
-        });
-
-        // Collision with collectibles
-        collectibleStates.forEach((collectible, index) => {
-            const c_data = levelData.collectibles[index];
-            if (collectible.active && // Only check active collectibles
-                player.x < c_data.x + 15 && player.x + player.width > c_data.x &&
-                player.y < c_data.y + 15 && player.y + player.height > c_data.y) {
-                
-                collectible.active = false; // Deactivate collectible
-                setScore(prev => prev + c_data.value); // Add score
-                playSound('collectGem', 'A5');
-                createParticles(particles, c_data.x + 7.5, c_data.y + 7.5, isMobile ? 5 : 8, levelData.theme.gemColor);
-            }
-        });
-
-        // Collision with obstacles (spikes)
+        // Colisiones con obstáculos
         levelData.obstacles.forEach(obstacle => {
-            // Check for collision if player is not invincible
-            if (player.invincible === 0 && 
-                player.x < obstacle.x + obstacle.width && player.x + player.width > obstacle.x &&
-                player.y + player.height > obstacle.y) { // Player's bottom touches obstacle top
-                
-                player.invincible = 60; // Grant invincibility
-                setLives(prev => prev - 1); // Lose a life
-                playSound('hit', 'C2');
-                createParticles(particles, player.x + player.width / 2, player.y + player.height / 2, isMobile ? 7 : 10, levelData.theme.spikeColor);
+            if (checkCollision(player, obstacle) && player.invincible === 0) {
+                handlePlayerHit();
             }
         });
-
-        // Check if player falls out of the map
-        if (player.y > 650) { // Below the visible canvas area
-            setLives(prev => prev - 1); // Lose a life
-            if (lives - 1 <= 0) { // Check if lives run out
-                setGameState('gameOver'); // Transition to game over
-            } else {
-                // Reset player position and camera for next attempt
-                player.x = 100; player.y = 300; player.vx = 0; player.vy = 0;
-                game.camera.x = 0;
+        
+        // Colisiones con coleccionables
+        collectibleStates.forEach(collectible => {
+            if (collectible.active && checkCollision(player, { ...collectible, width: 20, height: 20 })) {
+                collectible.active = false;
+                onScoreUpdate(collectible.value);
+                if (collectible.type === 'gem') {
+                    playSound('collectGem', 'E5');
+                    createParticles(collectible.x, collectible.y, 10, levelData.theme.gemColor, 3, 2);
+                } else {
+                    playSound('powerup', 'A4');
+                    createParticles(collectible.x, collectible.y, 20, levelData.theme.powerupColor, 5, 4);
+                    // Aplicar efecto de power-up
+                    player.invincible = 300; // 5 segundos de invencibilidad
+                }
             }
-        }
-    };
-
-    // --- Drawing Functions ---
-
-    /**
-     * Clears the canvas and draws all game elements.
-     * @param {CanvasRenderingContext2D} ctx - The 2D rendering context of the canvas.
-     * @param {object} game - The mutable game state object.
-     * @param {object} levelData - The current level's data.
-     * @param {HTMLCanvasElement} canvas - The canvas element.
-     * @param {number} lives - Current lives count.
-     * @param {number} score - Current score.
-     */
-    const drawGame = (ctx, game, levelData, canvas, lives, score) => {
-        const { theme } = levelData;
-        // Clear canvas with background color
-        ctx.fillStyle = theme.backgroundColor;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        ctx.save(); // Save current canvas state
-        // Apply camera translation to draw game world relative to camera
-        ctx.translate(-game.camera.x, 0);
-
-        // Draw all game elements
-        drawPlatforms(ctx, game, levelData);
-        drawCollectibles(ctx, game, levelData);
-        drawEnemies(ctx, game, levelData);
-        drawObstacles(ctx, game, levelData);
-        drawPlayer(ctx, game, levelData); // Pass levelData for player color
-        drawParticles(ctx, game);
-
-        ctx.restore(); // Restore canvas state (undo translation)
-        drawUI(ctx, canvas, lives, score); // Draw UI elements (lives, score)
-    };
-
-    /**
-     * Draws the player character on the canvas.
-     * @param {CanvasRenderingContext2D} ctx - The 2D rendering context.
-     * @param {object} game - The mutable game state object.
-     * @param {object} levelData - The current level's data for player color.
-     */
-    const drawPlayer = (ctx, game, levelData) => {
-        const { player } = game;
-        ctx.save();
-        // Invincibility flicker effect
-        if (player.invincible > 0 && Math.floor(player.invincible / 4) % 2 === 0) {
-            ctx.globalAlpha = 0.5;
-        }
-        // Simple squish and stretch effect based on vertical velocity and grounded state
-        const stretch = 1 - Math.min(10, Math.abs(player.vy)) * 0.03;
-        const squish = player.grounded ? Math.max(0.1, 1 - Math.abs(player.vx) * 0.05) : 1;
-        
-        // Translate to player's center bottom for rotation/scaling origin
-        ctx.translate(player.x + player.width / 2, player.y + player.height);
-        ctx.scale(squish, stretch); // Apply squish/stretch
-        
-        ctx.fillStyle = levelData.theme.playerColor;
-        ctx.beginPath();
-        // Draw rounded rectangle for player body
-        const radius = 5;
-        ctx.moveTo(-player.width/2 + radius, -player.height);
-        ctx.lineTo(player.width/2 - radius, -player.height);
-        ctx.arcTo(player.width/2, -player.height, player.width/2, -player.height + radius, radius);
-        ctx.lineTo(player.width/2, -radius);
-        ctx.arcTo(player.width/2, 0, player.width/2 - radius, 0, radius);
-        ctx.lineTo(-player.width/2 + radius, 0);
-        ctx.arcTo(-player.width/2, 0, -player.width/2, -radius, radius);
-        ctx.lineTo(-player.width/2, -player.height + radius);
-        ctx.arcTo(-player.width/2, -player.height, -player.width/2 + radius, -player.height, radius);
-        ctx.closePath();
-        ctx.fill();
-        
-        // Draw simple eye
-        ctx.fillStyle = 'white';
-        ctx.beginPath();
-        ctx.arc(player.vx > 0.1 ? 4 : (player.vx < -0.1 ? -4 : 0), -player.height/2, 4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = 'black';
-        ctx.beginPath();
-        ctx.arc(player.vx > 0.1 ? 5 : (player.vx < -0.1 ? -3 : 0), -player.height/2, 2, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.restore(); // Restore canvas state
-    };
-
-    /**
-     * Draws all platforms on the canvas.
-     * @param {CanvasRenderingContext2D} ctx - The 2D rendering context.
-     * @param {object} game - The mutable game state object.
-     * @param {object} levelData - The current level's data.
-     */
-    const drawPlatforms = (ctx, game, levelData) => {
-        const { theme } = levelData;
-        levelData.platforms.forEach((platform, index) => {
-            const state = game.platformStates.get(index);
-            if (platform.type === 'disappearing') {
-                if (!state.visible) return; // Don't draw if invisible
-                ctx.globalAlpha = Math.max(0, state.timer / 30); // Fade out effect
-            }
-
-            let pX = platform.x, pY = platform.y;
-            // Adjust position for moving platforms
-            if (platform.type === 'moving' && state) {
-                if (platform.movementDirection === 'vertical') pY += state.offset;
-                else pX += state.offset;
-            }
-
-            // Set fill style based on platform type
-            ctx.fillStyle = platform.type === 'bouncy' ? theme.bouncyColor :
-                            platform.type === 'ice' ? theme.iceColor :
-                            platform.type === 'exit' ? theme.exitColor :
-                            theme.platformColor;
-            ctx.fillRect(pX, pY, platform.width, platform.height);
-            ctx.globalAlpha = 1; // Reset alpha after drawing
-        });
-    };
-
-    /**
-     * Draws all active enemies on the canvas.
-     * @param {CanvasRenderingContext2D} ctx - The 2D rendering context.
-     * @param {object} game - The mutable game state object.
-     * @param {object} levelData - The current level's data.
-     */
-    const drawEnemies = (ctx, game, levelData) => {
-        const { theme } = levelData;
-        game.enemyStates.forEach(enemy => {
-            if (!enemy.active) return; // Don't draw inactive enemies
-            ctx.fillStyle = theme.enemyColor;
-            // Draw a simple circle for enemies
-            ctx.beginPath();
-            ctx.arc(enemy.x + 10, enemy.y + 10, 10, 0, Math.PI * 2);
-            ctx.fill();
         });
     };
     
-    /**
-     * Draws all active collectibles on the canvas.
-     * @param {CanvasRenderingContext2D} ctx - The 2D rendering context.
-     * @param {object} game - The mutable game state object.
-     * @param {object} levelData - The current level's data.
-     */
-    const drawCollectibles = (ctx, game, levelData) => {
-        const { theme } = levelData;
-        game.collectibleStates.forEach((collectible, index) => {
-            const c_data = levelData.collectibles[index];
-            if (!collectible.active) return; // Don't draw inactive collectibles
-            ctx.fillStyle = c_data.type === 'gem' ? theme.gemColor : theme.powerupColor;
+    const getStandingOnPlatform = () => {
+        const { player } = gameRefs.current;
+        for (const p of levelData.platforms) {
+            if (player.x + player.width > p.x && player.x < p.x + p.width &&
+                Math.abs((player.y + player.height) - p.y) < 5) {
+                return p;
+            }
+        }
+        return null;
+    };
+
+    const checkCollision = (rect1, rect2) => {
+        return rect1.x < rect2.x + rect2.width &&
+               rect1.x + rect1.width > rect2.x &&
+               rect1.y < rect2.y + rect2.height &&
+               rect1.y + rect1.height > rect2.y;
+    };
+
+    const handlePlayerHit = () => {
+        const { player } = gameRefs.current;
+        playSound('hit', 'C2');
+        createParticles(player.x + player.width / 2, player.y + player.height / 2, 30, '#ffffff', 6, 4);
+        
+        // Habilidad del Guerrero
+        if (character.name === 'Guerrero') {
+            player.invincible = 120; // 2 segundos de invencibilidad
+        } else {
+            player.invincible = 180; // 3 segundos de invencibilidad normal
+        }
+        
+        onGameOver(); // Esto decrementará las vidas en el componente padre
+    };
+
+    // --- LÓGICA DE DIBUJADO ---
+    const draw = (ctx) => {
+        const { camera, player, time } = gameRefs.current;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        // Limpiar canvas
+        ctx.fillStyle = levelData.theme.backgroundColor;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Guardar estado del canvas y mover la "cámara"
+        ctx.save();
+        ctx.translate(-camera.x, -camera.y);
+
+        // Dibujar elementos del juego
+        drawBackground(ctx, canvas);
+        drawPlatforms(ctx);
+        drawCollectibles(ctx);
+        drawObstacles(ctx);
+        drawEnemies(ctx);
+        drawPlayer(ctx);
+        drawParticles(ctx);
+
+        // Restaurar estado del canvas
+        ctx.restore();
+        
+        // Dibujar portal de salida si está cerca
+        const exitPlatform = levelData.platforms.find(p => p.type === 'exit');
+        if (exitPlatform) {
+            drawExitPortal(ctx, exitPlatform);
+        }
+    };
+    
+    const drawBackground = (ctx, canvas) => {
+        const { camera } = gameRefs.current;
+        ctx.fillStyle = '#2c3e50'; // Capa lejana
+        ctx.fillRect(camera.x, camera.y, canvas.width, canvas.height);
+
+        // Estrellas parpadeantes
+        for(let i=0; i<100; i++) {
+            const x = (i * 97 + camera.x * 0.1) % (levelData.levelLength);
+            const y = (i * 251) % (canvas.height + camera.y);
+            const alpha = Math.sin(gameRefs.current.time * 0.05 + i) * 0.5 + 0.5;
+            ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+            ctx.fillRect(x, y, 2, 2);
+        }
+    };
+
+    const drawPlayer = (ctx) => {
+        const { player, time } = gameRefs.current;
+        
+        // Efecto de invencibilidad
+        if (player.invincible > 0 && time % 10 < 5) {
+            return; // Parpadeo
+        }
+        
+        ctx.fillStyle = character.color;
+        ctx.fillRect(player.x, player.y, player.width, player.height);
+
+        // Ojos del personaje
+        ctx.fillStyle = 'white';
+        const eyeY = player.y + 10;
+        const eyeX1 = player.x + 7;
+        const eyeX2 = player.x + 19;
+        ctx.fillRect(eyeX1, eyeY, 4, 4);
+        ctx.fillRect(eyeX2, eyeY, 4, 4);
+        
+        // Pupilas
+        ctx.fillStyle = 'black';
+        const pupilOffset = player.vx > 0 ? 2 : (player.vx < 0 ? 0 : 1);
+        ctx.fillRect(eyeX1 + pupilOffset, eyeY + 1, 2, 2);
+        ctx.fillRect(eyeX2 + pupilOffset, eyeY + 1, 2, 2);
+    };
+
+    const drawPlatforms = (ctx) => {
+        const { time, platformStates } = gameRefs.current;
+        levelData.platforms.forEach(p => {
+            if (p.type === 'exit') return; // Se dibuja por separado
+
+            let color = levelData.theme.platformColor;
+            switch(p.type) {
+                case 'bouncy': color = levelData.theme.bouncyColor; break;
+                case 'ice': color = levelData.theme.iceColor; break;
+                case 'disappearing':
+                    const state = platformStates.get(p.x + ',' + p.y) || {};
+                    if (state.touched) {
+                        const elapsed = time - state.touched;
+                        state.alpha = Math.max(0, 1 - elapsed / 60); // Desaparece en 1 segundo
+                    }
+                    color = `rgba(108, 92, 231, ${state.alpha ?? 1})`;
+                    break;
+            }
+            ctx.fillStyle = color;
+            ctx.fillRect(p.x, p.y, p.width, p.height);
+        });
+    };
+
+    const drawEnemies = (ctx) => {
+        const { enemyStates, time } = gameRefs.current;
+        enemyStates.forEach(enemy => {
+            if (!enemy.active) return;
+            ctx.fillStyle = levelData.theme.enemyColor;
+            // Animación simple de "respiración"
+            const sizeW = 30 + Math.sin(time * 0.1 + enemy.id.charCodeAt(1)) * 3;
+            const sizeH = 30 - Math.sin(time * 0.1 + enemy.id.charCodeAt(1)) * 3;
+            ctx.fillRect(enemy.x - sizeW / 2, enemy.y - sizeH, sizeW, sizeH);
+        });
+    };
+
+    const drawCollectibles = (ctx) => {
+        const { collectibleStates, time } = gameRefs.current;
+        collectibleStates.forEach(c => {
+            if (!c.active) return;
+            const yOffset = Math.sin(time * 0.05 + c.id.charCodeAt(1)) * 5;
+            ctx.fillStyle = c.type === 'gem' ? levelData.theme.gemColor : levelData.theme.powerupColor;
+            
             ctx.save();
-            // Rotate collectibles for a sparkling effect
-            ctx.translate(c_data.x + 7.5, c_data.y + 7.5);
-            ctx.rotate(game.time * 0.05); // Rotate based on game time
-            ctx.fillRect(-7.5, -7.5, 15, 15); // Draw a square
+            ctx.translate(c.x, c.y + yOffset);
+            ctx.rotate(time * 0.02);
+            ctx.fillRect(-10, -10, 20, 20);
             ctx.restore();
         });
     };
-    
-    /**
-     * Draws all obstacles (spikes) on the canvas.
-     * @param {CanvasRenderingContext2D} ctx - The 2D rendering context.
-     * @param {object} game - The mutable game state object.
-     * @param {object} levelData - The current level's data.
-     */
-    const drawObstacles = (ctx, game, levelData) => {
-        const { theme } = levelData;
-        ctx.fillStyle = theme.spikeColor;
-        levelData.obstacles.forEach(obstacle => {
-            // Draw a triangle for spikes
+
+    const drawObstacles = (ctx) => {
+        levelData.obstacles.forEach(o => {
+            ctx.fillStyle = levelData.theme.spikeColor;
             ctx.beginPath();
-            ctx.moveTo(obstacle.x, obstacle.y + obstacle.height);
-            ctx.lineTo(obstacle.x + obstacle.width / 2, obstacle.y);
-            ctx.lineTo(obstacle.x + obstacle.width, obstacle.y + obstacle.height);
+            ctx.moveTo(o.x, o.y + o.height);
+            for(let i=0; i < o.width; i+=10) {
+                ctx.lineTo(o.x + i + 5, o.y);
+                ctx.lineTo(o.x + i + 10, o.y + o.height);
+            }
             ctx.closePath();
             ctx.fill();
         });
     };
-
-    /**
-     * Draws the game UI (lives and score) on the canvas.
-     * @param {CanvasRenderingContext2D} ctx - The 2D rendering context.
-     * @param {HTMLCanvasElement} canvas - The canvas element.
-     * @param {number} lives - Current lives count.
-     * @param {number} score - Current score.
-     */
-    const drawUI = (ctx, canvas, lives, score) => {
-        ctx.fillStyle = '#fff';
-        ctx.font = '24px "Press Start 2P", monospace'; // Use pixel font for UI
-        ctx.textAlign = 'left';
-        ctx.fillText(`VIDAS: ${lives}`, 20, 40);
-        ctx.textAlign = 'right';
-        ctx.fillText(`PUNTOS: ${score}`, canvas.width - 20, 40);
-    };
-
-    // --- Particle System Functions ---
-
-    /**
-     * Creates new particles at a given position.
-     * @param {Array} particles - The array to add particles to.
-     * @param {number} x - X coordinate for particles.
-     * @param {number} y - Y coordinate for particles.
-     * @param {number} count - Number of particles to create.
-     * @param {string} color - Color of the particles.
-     */
-    const createParticles = (particles, x, y, count, color) => {
-        for (let i = 0; i < count; i++) {
-            particles.push({
-                x, y,
-                vx: (Math.random() - 0.5) * 4, // Random horizontal velocity
-                vy: (Math.random() - 0.5) * 4 - 2, // Random vertical velocity (upwards bias)
-                life: 30 + Math.random() * 20, // Random lifespan
-                color
-            });
+    
+    const drawExitPortal = (ctx, portalPlatform) => {
+        const { time, camera } = gameRefs.current;
+        const portalX = portalPlatform.x + portalPlatform.width / 2;
+        const portalY = portalPlatform.y - 40;
+        
+        ctx.save();
+        ctx.translate(portalX - camera.x, portalY - camera.y);
+        
+        for (let i = 0; i < 5; i++) {
+            const radius = 20 + i * 5 + Math.sin(time * 0.1 + i) * 3;
+            const alpha = 0.2 + i * 0.1;
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(85, 239, 196, ${alpha})`;
+            ctx.lineWidth = 3;
+            ctx.stroke();
         }
+        
+        ctx.restore();
     };
 
-    /**
-     * Updates the position and lifespan of all active particles.
-     * @param {object} game - The mutable game state object.
-     */
-    const updateParticles = (game) => {
-        for (let i = game.particles.length - 1; i >= 0; i--) {
-            const p = game.particles[i];
-            p.x += p.vx;
-            p.y += p.vy;
-            p.vy += 0.1; // Apply gravity to particles
-            p.life--; // Decrement lifespan
-            if (p.life <= 0) game.particles.splice(i, 1); // Remove dead particles
-        }
-    };
-
-    /**
-     * Draws all active particles on the canvas.
-     * @param {CanvasRenderingContext2D} ctx - The 2D rendering context.
-     * @param {object} game - The mutable game state object.
-     */
-    const drawParticles = (ctx, game) => {
-        game.particles.forEach(p => {
-            ctx.globalAlpha = p.life / 50; // Fade out particles as they die
+    const drawParticles = (ctx) => {
+        gameRefs.current.particles.forEach(p => {
             ctx.fillStyle = p.color;
-            ctx.fillRect(p.x, p.y, 3, 3); // Draw small squares for particles
+            ctx.globalAlpha = p.life / 40;
+            ctx.fillRect(p.x, p.y, p.size, p.size);
+            ctx.globalAlpha = 1.0;
         });
-        ctx.globalAlpha = 1; // Reset alpha after drawing particles
     };
 
-    // --- Game Flow Functions ---
 
-    /**
-     * Resets game state for a new level.
-     * @param {number} newLevel - The level number to transition to.
-     */
-    const resetForNewLevel = (newLevel) => {
-        setLevel(newLevel);
-        setTheme(''); // Reset theme selection
-        setCustomTheme('');
-        setGameState('themeSelect'); // Go back to theme selection
-        // Reset player and camera state
-        gameRefs.current.player = { x: 100, y: 300, vx: 0, vy: 0, width: PLAYER_WIDTH, height: PLAYER_HEIGHT, grounded: false, invincible: 0 };
-        gameRefs.current.camera.x = 0;
-        gameRefs.current.particles = []; // Clear particles
+    // --- RENDERIZADO DEL COMPONENTE ---
+    return (
+        <div className="relative w-full h-full flex flex-col items-center justify-center">
+            <canvas
+                ref={canvasRef}
+                width={960}
+                height={640}
+                className="border-4 border-slate-600 rounded-lg shadow-2xl max-w-full"
+                style={{ touchAction: 'none' }}
+            />
+            <div className="touch-controls md:hidden">
+                <div className="flex space-x-4">
+                    <button className="touch-btn" onTouchStart={() => handleTouch('ArrowLeft', true)} onTouchEnd={() => handleTouch('ArrowLeft', false)}>◀</button>
+                    <button className="touch-btn" onTouchStart={() => handleTouch('ArrowRight', true)} onTouchEnd={() => handleTouch('ArrowRight', false)}>▶</button>
+                </div>
+                <button className="touch-btn" onTouchStart={() => handleTouch('Space', true)} onTouchEnd={() => handleTouch('Space', false)}>▲</button>
+            </div>
+        </div>
+    );
+};
+
+
+// --- COMPONENTE PRINCIPAL DE LA APLICACIÓN (HUB) ---
+const GameHub = () => {
+    const [gameState, setGameState] = useState('menu');
+    const [selectedWorld, setSelectedWorld] = useState(null);
+    const [currentLevel, setCurrentLevel] = useState(1);
+    const [score, setScore] = useState(0);
+    const [lives, setLives] = useState(3);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [levelData, setLevelData] = useState(null);
+    const [isMobile, setIsMobile] = useState(false);
+    const [worldPage, setWorldPage] = useState(0);
+    const [unlockedLevels, setUnlockedLevels] = useState([1]);
+    const [unlockedCharacters, setUnlockedCharacters] = useState([1]);
+    const [selectedCharacterId, setSelectedCharacterId] = useState(1);
+    const [showRewardPopup, setShowRewardPopup] = useState(null);
+
+    // Cargar y guardar progreso
+    useEffect(() => {
+        const savedProgress = localStorage.getItem('gameHubProgress');
+        if (savedProgress) {
+            const progress = JSON.parse(savedProgress);
+            setUnlockedLevels(progress.unlockedLevels || [1]);
+            setUnlockedCharacters(progress.unlockedCharacters || [1]);
+            setSelectedCharacterId(progress.selectedCharacterId || 1);
+        }
+        const checkIfMobile = () => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        setIsMobile(checkIfMobile());
+    }, []);
+
+    useEffect(() => {
+        const progress = { unlockedLevels, unlockedCharacters, selectedCharacterId };
+        localStorage.setItem('gameHubProgress', JSON.stringify(progress));
+    }, [unlockedLevels, unlockedCharacters, selectedCharacterId]);
+    
+    // Generar nivel
+    const generateLevel = useCallback(async (level, themeName) => {
+        setIsGenerating(true);
+        setGameState('generating');
+        const prompt = `Generate a platformer level for a game with theme "${themeName}" and difficulty for level ${level}.`;
+        try {
+            const response = await window.aiAPI.complete(prompt);
+            const data = JSON.parse(response);
+            setLevelData(data);
+            setLives(3); // Reset lives for new level
+            setGameState('playing');
+        } catch (error) {
+            console.error('Error al generar el nivel, usando fallback:', error);
+            const fallbackData = createFallbackLevel(themeName, level);
+            setLevelData(fallbackData);
+            setLives(3);
+            setGameState('playing');
+        } finally {
+            setIsGenerating(false);
+        }
+    }, []);
+
+    const handleSelectWorld = (world, level) => {
+        setSelectedWorld(world);
+        setCurrentLevel(level);
+        generateLevel(level, world.name);
     };
 
-    /**
-     * Restarts the game from the beginning.
-     */
-    const restartGame = () => {
-        setScore(0);
-        setLives(3);
-        resetForNewLevel(1); // Start from level 1
+    const handleScoreUpdate = (points, reset = false) => {
+        if (reset) {
+            setScore(0);
+        } else {
+            setScore(prev => prev + points);
+        }
     };
 
-    // --- Renderizado del Componente ---
-    /**
-     * Renders the appropriate screen based on the current `gameState`.
-     */
+    const handleGameOver = () => {
+        if (lives > 1) {
+            setLives(prev => prev - 1);
+            // Reiniciar solo el estado del jugador, no todo el nivel
+            const currentLevelTheme = worlds[currentLevel - 1].name;
+            generateLevel(currentLevel, currentLevelTheme); // Regenera para reposicionar todo
+        } else {
+            setGameState('gameOver');
+        }
+    };
+
+    const handleLevelComplete = () => {
+        const nextLevel = currentLevel + 1;
+        if (nextLevel <= worlds.length && !unlockedLevels.includes(nextLevel)) {
+            setUnlockedLevels(prev => [...prev, nextLevel].sort((a,b) => a-b));
+        }
+
+        const reward = rewards.find(r => r.level === currentLevel);
+        if (reward) {
+            const characterReward = characters.find(c => reward.prize.includes(c.name));
+            if (characterReward && !unlockedCharacters.includes(characterReward.id)) {
+                setUnlockedCharacters(prev => [...prev, characterReward.id].sort((a,b) => a-b));
+            }
+            setShowRewardPopup(reward.prize);
+        }
+        
+        setGameState('levelComplete');
+    };
+    
+    const closeRewardPopupAndContinue = () => {
+        setShowRewardPopup(null);
+        // No hacer nada más, el usuario elegirá la siguiente acción desde la pantalla de nivel completado
+    };
+
+    const worldsPerPage = 6;
+    const totalPages = Math.ceil(worlds.length / worldsPerPage);
+    const currentWorlds = worlds.slice(worldPage * worldsPerPage, (worldPage + 1) * worldsPerPage);
+
+    // --- RENDERIZADO DE PANTALLAS ---
     const renderScreen = () => {
         switch (gameState) {
             case 'menu':
                 return (
-                    <div className="text-center space-y-8 animate-fade-in">
-                        <h1 className="text-4xl md:text-7xl font-pixel bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent drop-shadow-lg">AI PLATFORMER</h1>
-                        <button 
-                            onClick={() => { Tone.start(); setGameState('themeSelect'); }} 
-                            className="px-8 py-4 md:px-10 md:py-5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg font-semibold text-lg md:text-xl shadow-lg hover:scale-105 transition-transform transform-gpu focus:outline-none focus:ring-4 focus:ring-blue-300 active:scale-95"
-                        >
-                            COMENZAR AVENTURA
-                        </button>
-                    </div>
-                );
-            case 'themeSelect':
-                const themes = [
-                    { name: 'Cuevas de Cristal', icon: '💎', color: '#e94560' }, 
-                    { name: 'Biblioteca Flotante', icon: '📚', color: '#9b59b6' }, 
-                    { name: 'Dimensión Espejo', icon: '👁️', color: '#3498db' }
-                ];
-                return (
-                    <div className="text-center space-y-8 max-w-4xl w-full px-4 animate-fade-in">
-                        <h2 className="text-3xl md:text-4xl font-pixel text-white drop-shadow-md">Elige un Tema para el Nivel {level}</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                            {themes.map((t) => (
-                                <button 
-                                    key={t.name} 
-                                    onClick={() => { setTheme(t.name); generateLevel(); }} 
-                                    className="p-6 md:p-8 rounded-xl bg-slate-700 hover:bg-slate-600 transition-all hover:scale-105 group border-4 flex flex-col items-center justify-center space-y-2 focus:outline-none focus:ring-4 focus:ring-offset-2" 
-                                    style={{ borderColor: t.color, '--tw-ring-color': t.color }}
-                                >
-                                    <div className="text-4xl md:text-5xl mb-2 group-hover:animate-bounce-once">{t.icon}</div>
-                                    <span className="font-semibold text-lg md:text-xl text-white">{t.name}</span>
+                    <div className="flex flex-col items-center justify-center min-h-screen p-4">
+                        <div className="text-center space-y-8 max-w-2xl w-full">
+                            <h1 className="text-4xl md:text-6xl font-pixel text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-red-500">GAME HUB</h1>
+                            <p className="text-slate-300">Una aventura generada por IA</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <button onClick={() => setGameState('worldSelect')} className="p-6 bg-gradient-to-br from-purple-700 to-indigo-800 rounded-xl flex flex-col items-center justify-center space-y-3 transition-transform hover:scale-105">
+                                    <span className="text-4xl">🎮</span>
+                                    <span className="text-xl font-bold">Jugar</span>
                                 </button>
-                            ))}
-                        </div>
-                    </div>
-                );
-            case 'generating':
-                return (
-                    <div className="text-center animate-pulse">
-                        <span className="text-6xl block mb-4">⚙️</span>
-                        <h2 className="text-3xl md:text-4xl font-pixel text-white">Generando Nivel...</h2>
-                        <p className="text-base md:text-lg text-slate-400 mt-2">¡La IA está creando tu aventura!</p>
-                    </div>
-                );
-            case 'playing':
-                return (
-                    <div className="relative w-full h-full flex flex-col items-center justify-center mobile-full-height">
-                        <canvas 
-                            ref={canvasRef} 
-                            width={960} 
-                            height={640} 
-                            className="border-4 border-slate-600 rounded-lg shadow-2xl max-w-full max-h-[90vh] object-contain" 
-                            style={{ touchAction: 'none' }}
-                        />
-                        {/* Touch controls for mobile devices */}
-                        <div className="touch-controls md:hidden">
-                            <div className="touch-dpad">
-                                <button 
-                                    className="dpad-btn dpad-up"
-                                    onTouchStart={(e) => { e.preventDefault(); handleDpad('up', true); }}
-                                    onTouchEnd={(e) => { e.preventDefault(); handleDpad('up', false); }}
-                                >
-                                    ▲
-                                </button>
-                                <button 
-                                    className="dpad-btn dpad-left"
-                                    onTouchStart={(e) => { e.preventDefault(); handleDpad('left', true); }}
-                                    onTouchEnd={(e) => { e.preventDefault(); handleDpad('left', false); }}
-                                >
-                                    ◄
-                                </button>
-                                <div className="dpad-center"></div>
-                                <button 
-                                    className="dpad-btn dpad-right"
-                                    onTouchStart={(e) => { e.preventDefault(); handleDpad('right', true); }}
-                                    onTouchEnd={(e) => { e.preventDefault(); handleDpad('right', false); }}
-                                >
-                                    ►
-                                </button>
-                                <button 
-                                    className="dpad-btn dpad-down"
-                                    onTouchStart={(e) => { e.preventDefault(); handleDpad('down', true); }}
-                                    onTouchEnd={(e) => { e.preventDefault(); handleDpad('down', false); }}
-                                >
-                                    ▼
+                                <button onClick={() => setGameState('characters')} className="p-6 bg-gradient-to-br from-blue-700 to-cyan-800 rounded-xl flex flex-col items-center justify-center space-y-3 transition-transform hover:scale-105">
+                                    <span className="text-4xl">🧑‍🚀</span>
+                                    <span className="text-xl font-bold">Personajes</span>
                                 </button>
                             </div>
-                            <button 
-                                id="touch-jump" 
-                                className="touch-btn" 
-                                onTouchStart={(e) => { e.preventDefault(); handleKey(' ', true); }} 
-                                onTouchEnd={(e) => { e.preventDefault(); handleKey(' ', false); }}
-                            >
-                                ▲
-                            </button>
                         </div>
                     </div>
                 );
+            
+            case 'worldSelect':
+                 return (
+                    <div className="flex flex-col items-center justify-center min-h-screen p-4">
+                        <div className="w-full max-w-4xl">
+                            <div className="flex justify-between items-center mb-8">
+                                <button onClick={() => setGameState('menu')} className="px-4 py-2 bg-slate-700 rounded-lg flex items-center hover:bg-slate-600">
+                                    <span className="mr-2">←</span> Menú
+                                </button>
+                                <h2 className="text-2xl md:text-3xl font-pixel text-center">Selecciona un Mundo</h2>
+                                <div className="w-24"></div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {currentWorlds.map((world, index) => {
+                                    const worldIndex = worldPage * worldsPerPage + index + 1;
+                                    const isLocked = !unlockedLevels.includes(worldIndex);
+                                    return (
+                                        <div key={worldIndex}
+                                            className={`world-card rounded-xl p-6 flex flex-col items-center text-center ${isLocked ? 'bg-slate-800 opacity-60 cursor-not-allowed' : 'bg-slate-700 cursor-pointer hover:bg-slate-600'}`}
+                                            onClick={() => !isLocked && handleSelectWorld(world, worldIndex)}>
+                                            <div className="w-16 h-16 rounded-full flex items-center justify-center text-3xl mb-4" style={{ backgroundColor: `${world.color}20`, border: `2px solid ${world.color}` }}>
+                                                {world.icon}
+                                            </div>
+                                            <h3 className="text-xl font-bold mb-2">{world.name}</h3>
+                                            <p className="text-sm text-slate-300 mb-3">Nivel {worldIndex}</p>
+                                            {isLocked && <div className="mt-4 text-red-400 flex items-center"><span className="mr-2">🔒</span> Bloqueado</div>}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <div className="flex items-center justify-between mt-8">
+                                <button onClick={() => setWorldPage(p => Math.max(0, p - 1))} disabled={worldPage === 0} className="nav-button">←</button>
+                                <p className="text-lg">Página {worldPage + 1} de {totalPages}</p>
+                                <button onClick={() => setWorldPage(p => Math.min(totalPages - 1, p + 1))} disabled={worldPage >= totalPages - 1} className="nav-button">→</button>
+                            </div>
+                        </div>
+                    </div>
+                );
+
+            case 'characters':
+                return (
+                    <div className="flex flex-col items-center justify-center min-h-screen p-4">
+                        <div className="w-full max-w-4xl">
+                            <div className="flex justify-between items-center mb-8">
+                                <button onClick={() => setGameState('menu')} className="px-4 py-2 bg-slate-700 rounded-lg flex items-center hover:bg-slate-600">
+                                    <span className="mr-2">←</span> Menú
+                                </button>
+                                <h2 className="text-2xl md:text-3xl font-pixel text-center">Personajes</h2>
+                                <div className="w-24"></div>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                                {characters.map(char => {
+                                    const isUnlocked = unlockedCharacters.includes(char.id);
+                                    return (
+                                        <div key={char.id}
+                                            className={`character-card rounded-xl p-4 flex flex-col items-center text-center ${isUnlocked ? 'unlocked' : ''} ${selectedCharacterId === char.id ? 'selected' : ''}`}
+                                            onClick={() => isUnlocked && setSelectedCharacterId(char.id)}>
+                                            <div className="w-16 h-16 rounded-full mb-3" style={{ backgroundColor: char.color }}></div>
+                                            <h3 className="font-bold">{char.name}</h3>
+                                            <p className="text-xs text-slate-400 mt-1 h-8">{char.ability}</p>
+                                            {!isUnlocked && <p className="text-xs mt-2 text-red-400">🔒 Bloqueado</p>}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                );
+
+            case 'generating':
+                return (
+                    <div className="flex flex-col items-center justify-center min-h-screen p-4">
+                        <div className="vortex-container"><div className="vortex"></div></div>
+                        <h2 className="text-2xl font-pixel mt-8 animate-pulse">Generando Nivel...</h2>
+                        <p className="text-slate-400 mt-2">La IA está creando tu próxima aventura.</p>
+                    </div>
+                );
+
+            case 'playing':
+                return (
+                    <div className="w-full min-h-screen flex flex-col items-center justify-center p-4">
+                        <div className="w-full max-w-[960px] mb-4 flex justify-between items-center text-lg font-bold">
+                            <button onClick={() => setGameState('worldSelect')} className="px-4 py-2 bg-slate-700 rounded-lg hover:bg-slate-600">← Salir</button>
+                            <div className="flex items-center space-x-4">
+                                <span className="text-yellow-400">💎 {score}</span>
+                                <span className="text-red-500">❤️ {lives}</span>
+                            </div>
+                        </div>
+                        <PlatformerGame 
+                            levelData={levelData}
+                            onLevelComplete={handleLevelComplete}
+                            onGameOver={handleGameOver}
+                            character={characters.find(c => c.id === selectedCharacterId)}
+                            onScoreUpdate={handleScoreUpdate}
+                        />
+                    </div>
+                );
+            
             case 'levelComplete':
-                return (
-                    <div className="text-center space-y-6 animate-fade-in">
-                        <span className="text-6xl md:text-8xl block animate-bounce-once">🏆</span>
-                        <h2 className="text-3xl md:text-5xl font-pixel text-yellow-300 drop-shadow-lg">¡Nivel Completado!</h2>
-                        <p className="text-xl md:text-2xl text-white">Puntuación: {score}</p>
-                        <button 
-                            onClick={() => resetForNewLevel(level + 1)} 
-                            className="px-8 py-4 md:px-10 md:py-5 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg text-lg md:text-xl font-semibold shadow-lg hover:scale-105 transition-transform focus:outline-none focus:ring-4 focus:ring-green-300 active:scale-95"
-                        >
-                            Siguiente Nivel
-                        </button>
-                    </div>
-                );
             case 'gameOver':
+                const isWin = gameState === 'levelComplete';
                 return (
-                    <div className="text-center space-y-6 animate-fade-in">
-                        <span className="text-6xl md:text-8xl block animate-shake">💀</span>
-                        <h2 className="text-3xl md:text-5xl font-pixel text-red-500 drop-shadow-lg">Fin del Juego</h2>
-                        <p className="text-xl md:text-2xl text-white">Puntuación Final: {score}</p>
-                        <div className="flex flex-col md:flex-row gap-4 justify-center">
-                            <button 
-                                onClick={() => { setLives(3); restartGame(); }} 
-                                className="px-6 py-3 md:px-8 md:py-4 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg font-semibold shadow-md hover:scale-105 transition-transform focus:outline-none focus:ring-4 focus:ring-blue-300 active:scale-95"
-                            >
-                                Intentar de Nuevo
-                            </button>
-                            <button 
-                                onClick={restartGame} 
-                                className="px-6 py-3 md:px-8 md:py-4 bg-gradient-to-r from-gray-600 to-gray-700 rounded-lg font-semibold shadow-md hover:scale-105 transition-transform focus:outline-none focus:ring-4 focus:ring-gray-400 active:scale-95"
-                            >
-                                Menú Principal
-                            </button>
+                    <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gradient-to-br from-slate-900 to-indigo-900">
+                        <div className="text-center space-y-6 max-w-md w-full px-4 bg-slate-800 rounded-xl p-8 shadow-2xl">
+                            {isWin && <div className="level-complete"><div className="vortex-container"><div className="vortex"></div></div></div>}
+                            <h2 className={`text-3xl md:text-4xl font-pixel ${isWin ? 'text-green-400' : 'text-red-500'}`}>
+                                {isWin ? '¡Nivel Completado!' : '¡Juego Terminado!'}
+                            </h2>
+                            <div className="my-6 p-4 bg-slate-700 rounded-lg">
+                                <p className="text-lg">Puntuación Final: <span className="font-bold text-yellow-400">{score}</span></p>
+                            </div>
+                            
+                            {showRewardPopup && (
+                                <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+                                    <div className="bg-slate-800 p-8 rounded-xl text-center shadow-lg">
+                                        <h3 className="text-2xl font-bold text-yellow-400 mb-4">¡Recompensa Desbloqueada!</h3>
+                                        <p className="text-lg mb-6">{showRewardPopup}</p>
+                                        <button onClick={closeRewardPopupAndContinue} className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg font-semibold">¡Genial!</button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="flex flex-col gap-3 mt-6">
+                                {isWin && currentLevel < worlds.length && (
+                                    <button onClick={() => handleSelectWorld(worlds[currentLevel], currentLevel + 1)} className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg font-semibold shadow-lg hover:scale-105 transition-transform">
+                                        Siguiente Nivel →
+                                    </button>
+                                )}
+                                <button onClick={() => handleSelectWorld(worlds[currentLevel-1], currentLevel)} className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg font-semibold shadow-lg hover:scale-105 transition-transform">
+                                    {isWin ? 'Jugar de Nuevo' : 'Reintentar Nivel'}
+                                </button>
+                                <button onClick={() => setGameState('worldSelect')} className="px-6 py-3 bg-gradient-to-r from-gray-600 to-gray-700 rounded-lg font-semibold shadow-lg hover:scale-105 transition-transform">
+                                    Seleccionar Otro Nivel
+                                </button>
+                            </div>
                         </div>
                     </div>
                 );
+
             default:
-                return <div className="text-white text-xl">Cargando...</div>;
+                return <div className="text-white text-xl flex items-center justify-center min-h-screen">Cargando...</div>;
         }
     };
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 text-white p-4 relative mobile-full-height">
+        <div className="w-full min-h-screen">
             {renderScreen()}
         </div>
     );
 };
 
-// Render the React component
-ReactDOM.render(<PlatformerGame />, document.getElementById('root'));
+ReactDOM.render(<GameHub />, document.getElementById('root'));
 
-</script>
+    </script>
 </body>
 </html>
